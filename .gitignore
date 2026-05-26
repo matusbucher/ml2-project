@@ -1,0 +1,9 @@
+__pycache__/
+.vscode/
+tstex_modules/
+
+build/
+tmp/
+
+hf_token.txt
+notes.txt
