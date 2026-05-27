@@ -12,7 +12,7 @@ class CATransformer(torch.nn.Module):
         n_heads: int = 4,
         n_layers: int = 2,
         d_ff: int = 128,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ):
         super().__init__()
 
@@ -78,7 +78,7 @@ def train(
 def evaluate(
     model: CATransformer,
     data_loader: DataLoader,
-    device: str
+    device: str,
 ) -> dict[str, float]:
     """Evaluates the transformer model on the cellular automaton dataset."""
     
