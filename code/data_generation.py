@@ -6,6 +6,7 @@ def __rule_table(
     rule_number: int
 ) -> torch.Tensor:
     """Returns a rule table for a given rule number."""
+
     bits = [(rule_number >> i) & 1 for i in range(8)]
     return torch.tensor(bits, dtype=torch.long)
 
@@ -15,6 +16,7 @@ def __ca_step(
     rule_table: torch.Tensor
 ) -> torch.Tensor:
     """Performs one step of the cellular automaton given the current state and rule table."""
+
     N = state.shape[0]
     next_state = torch.zeros_like(state)
     
@@ -31,7 +33,7 @@ def __ca_step(
 
 class CADataset(Dataset):
     """A PyTorch Dataset for generating cellular automaton sequences based on a given rule number."""
-    
+
     def __init__(self,
         n_samples: int,
         seq_len: int,
