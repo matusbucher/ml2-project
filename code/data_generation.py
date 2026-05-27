@@ -32,7 +32,12 @@ def __ca_step(
 class CADataset(Dataset):
     """A PyTorch Dataset for generating cellular automaton sequences based on a given rule number."""
     
-    def __init__(self, n_samples: int, seq_len: int, rule_number: int = 110, steps: int = 1):
+    def __init__(self,
+        n_samples: int,
+        seq_len: int,
+        rule_number: int = 110,
+        steps: int = 1
+    ):
         self._n_samples = n_samples
         self._seq_len = seq_len
         self._rule_table = __rule_table(rule_number)
