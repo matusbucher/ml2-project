@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 from data_generation import *
 from transformer import *
@@ -13,22 +14,21 @@ SHOW_N_STATES = 9
 RESULTS_DIR = "results"
 
 
-def visualize_ca(
+def visualize_ca_trajectories(
     rule_number: int,
-    init_states: torch.Tensor,
+    init_states: np.ndarray,
     steps: int,
     save_path: str | None = None,
 ) -> None:
-    n_samples = init_states.shape[0]
-    histories = []
     ca = CellularAutomaton(rule_number)
+
+    trajectories = [
+        ca.trajectory(init_state, steps=steps, memoize=False)
+        for init_state in init_states
+    ]
     
-    for idx in range(n_samples):
-        history = ca_state_history(ca, init_states[idx], steps)
-        histories.append(history)
-    
-    visualize_state_histories(
-        histories=torch.stack(histories),
+    visualize_trajectories(
+        trajectories=trajectories,
         title=f"Celular automaton: rule {rule_number}",
         save_path=save_path
     )
@@ -37,19 +37,17 @@ def visualize_ca(
 def visualize_predictions(
     rule_number: int,
     model: CATransformer,
-    init_states: torch.Tensor,
+    init_states: np.ndarray,
     steps: int,
     save_path: str | None = None,
 ) -> None:
-    n_samples = init_states.shape[0]
-    histories = []
+    trajectories = [
+        transformer_trajectory(model, init_state, steps=steps)
+        for init_state in init_states
+    ]
 
-    for idx in range(n_samples):
-        history = transformer_state_history(model, init_states[idx], steps)
-        histories.append(history)
-        
-    visualize_state_histories(
-        histories=torch.stack(histories),
+    visualize_trajectories(
+        trajectories=trajectories,
         title=f"Transformer predictions: rule {rule_number}",
         save_path=save_path
     )
@@ -88,16 +86,18 @@ def first_experiment(
     n_epochs = 20
     lr = 1e-3
 
-    init_states = torch.randint(0, 2, (SHOW_N_STATES, seq_len), dtype=torch.long)
+    init_states = np.random.randint(0, 2, (SHOW_N_STATES, seq_len), dtype=np.uint8)
 
     if show_ca:
         for rule in rules:
-            visualize_ca(
+            visualize_ca_trajectories(
                 rule_number=rule,
                 init_states=init_states,
                 steps=SHOW_STEPS,
                 save_path=f"{save_dir}/ca_rule_{rule}.png"
             )
+
+    histories = []
 
     for rule in rules:
         train_ds = CADataset(train_size, seq_len, rule_number=rule, steps=train_steps)
@@ -122,6 +122,7 @@ def first_experiment(
             n_epochs=n_epochs,
             lr=lr,
         )
+        histories.append(history)
 
         if print_eval:
             train_metrics = evaluate(model, train_loader, device)
@@ -154,7 +155,20 @@ def first_experiment(
                 steps=SHOW_STEPS,
                 save_path=f"{save_dir}/predictions_rule_{rule}.png"
             )
+    
+    if show_loss_history:
+        visualize_multiple_loss_histories(
+            histories={f"Rule {rule}": h for rule, h in zip(rules, histories)},
+            title="Loss history comparison",
+            save_path=f"{save_dir}/loss_history_comparison.png"
+        )
 
+    if show_eval_history:
+        visualize_multiple_metrics_histories(
+            histories={f"Rule {rule}": h for rule, h in zip(rules, histories)},
+            title="Evaluation metrics history comparison",
+            save_path=f"{save_dir}/eval_history_comparison.png"
+        )
 
 
 if __name__ == "__main__":

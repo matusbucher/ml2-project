@@ -2,49 +2,33 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 
-from data_generation import CellularAutomaton
-from transformer import EvalMetrics, TrainHistory
+from transformer import TrainHistory
 
 
-def ca_state_history(
-    ca: CellularAutomaton,
-    init_state: torch.Tensor,
-    steps: int,
-) -> torch.Tensor:
-    history = [init_state.clone()]
-    current_state = init_state.clone()
-
-    for _ in range(steps):
-        next_state = ca.step(current_state)
-        history.append(next_state)
-        current_state = next_state
-    
-    return torch.stack(history)
-
-
-def transformer_state_history(
+def transformer_trajectory(
     model: torch.nn.Module,
-    init_state: torch.Tensor,
+    init_state: np.ndarray,
     steps: int,
-) -> torch.Tensor:
-    history = [init_state.clone()]
-    current_state = init_state.clone()
+) -> np.ndarray:
+    current_state = torch.from_numpy(init_state).long()
+    trajectory = [current_state]
 
     for _ in range(steps):
         with torch.no_grad():
             next_state = model(current_state.unsqueeze(0)).squeeze(0).argmax(dim=-1)
-        history.append(next_state)
+        trajectory.append(next_state)
         current_state = next_state
     
-    return torch.stack(history)
+    np_trajectory = torch.stack(trajectory).cpu().numpy()
+    return np_trajectory
 
 
-def visualize_state_histories(
-    histories: torch.Tensor,
+def visualize_trajectories(
+    trajectories: list[np.ndarray],
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
-    n_samples = histories.shape[0]
+    n_samples = len(trajectories)
     n_cols = int(np.ceil(np.sqrt(n_samples)))
     n_rows = int(np.ceil(n_samples / n_cols))
     
@@ -52,7 +36,7 @@ def visualize_state_histories(
     axes = axes.flatten()
     
     for idx in range(n_samples):
-        history_np = histories[idx].cpu().numpy().astype(np.uint8)
+        history_np = trajectories[idx].astype(np.uint8)
         
         ax = axes[idx]
         im = ax.imshow(history_np, cmap="gray_r", aspect="auto", interpolation="nearest")
@@ -89,6 +73,10 @@ def visualize_loss_history(
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.grid(True)
+    
+    max_epoch = len(history)
+    tick_positions = list(range(5, max_epoch + 1, 5))
+    plt.xticks(tick_positions)
 
     if title is not None:
         plt.suptitle(title, fontsize=14, fontweight="bold")
@@ -116,16 +104,79 @@ def visualize_metrics_history(
     plt.ylabel("Accuracy")
     plt.grid(True)
     
+    max_epoch = len(history)
+    tick_positions = list(range(5, max_epoch + 1, 5))
+    plt.xticks(tick_positions)
+    
     plt.subplot(1, 2, 2)
     plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="o", color="orange")
     plt.title("Sequence accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.grid(True)
+    
+    plt.xticks(tick_positions)
 
     if title is not None:
         plt.suptitle(title, fontsize=14, fontweight="bold")
     
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_multiple_loss_histories(
+    histories: dict[str, TrainHistory],
+    title: str | None = None,
+    save_path: str | None = None,
+) -> None:
+    plt.figure(figsize=(8, 5))
+    
+    for label, history in histories.items():
+        epochs = range(1, len(history) + 1)
+        plt.plot(epochs, history.losses, marker="o", label=label)
+    
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title(title if title is not None else "Loss History")
+    plt.grid(True)
+    plt.legend()
+    
+    max_epoch = max(len(h) for h in histories.values())
+    tick_positions = list(range(5, max_epoch + 1, 5))
+    plt.xticks(tick_positions)
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_multiple_metrics_histories(
+    histories: dict[str, TrainHistory],
+    title: str | None = None,
+    save_path: str | None = None,
+) -> None:
+    plt.figure(figsize=(12, 5))
+    
+    for label, history in histories.items():
+        epochs = range(1, len(history) + 1)
+        plt.plot(epochs, [m.cell_accuracy for m in history.eval_metrics], marker="o", label=f"{label} - Cell Acc")
+        plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="x", label=f"{label} - Seq Acc")
+    
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title(title if title is not None else "Evaluation Metrics History")
+    plt.grid(True)
+    plt.legend()
+    
+    max_epoch = max(len(h) for h in histories.values())
+    tick_positions = list(range(5, max_epoch + 1, 5))
+    plt.xticks(tick_positions)
+
     if save_path is not None:
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure saved to {save_path}")
