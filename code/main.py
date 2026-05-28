@@ -4,184 +4,156 @@ from visualize import *
 
 
 RANDOM_SEED = 42
-SEQ_LEN = 32
-TRAIN_SIZE = 20000
-TEST_SIZE = 2000
 
 SHOW_STEPS = 30
 SHOW_N_STATES = 9
 
-CA_RULE_30_SAVE_PATH = "results/rule_30.png"
-CA_RULE_90_SAVE_PATH = "results/rule_90.png"
-CA_RULE_110_SAVE_PATH = "results/rule_110.png"
-
-TRANSFORMER_RULE_30_SAVE_PATH = "results/transformer_rule_30.png"
-TRANSFORMER_RULE_90_SAVE_PATH = "results/transformer_rule_90.png"
-TRANSFORMER_RULE_110_SAVE_PATH = "results/transformer_rule_110.png"
+RESULTS_DIR = "results"
 
 
-def show_ca(
+def visualize_ca(
     rule_number: int,
     init_states: torch.Tensor,
     steps: int,
     save_path: str | None = None,
 ) -> None:
-    """Generates and visualizes CA histories."""
-
     n_samples = init_states.shape[0]
     histories = []
     ca = CellularAutomaton(rule_number)
     
     for idx in range(n_samples):
-        history = ca_history(ca, init_states[idx], steps)
+        history = ca_state_history(ca, init_states[idx], steps)
         histories.append(history)
     
-    visualize_states(
+    visualize_state_histories(
         histories=torch.stack(histories),
-        title=f"Celular Automaton Rule {rule_number}",
+        title=f"Celular automaton: rule {rule_number}",
         save_path=save_path
     )
 
 
-def train_onestep(
+def visualize_predictions(
     rule_number: int,
-    n_epochs: int = 10,
-    lr: float = 1e-3,
-) -> CATransformer:
-    """Trains a transformer on a specific CA rule and returns the trained model."""
-    
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    train_dataset = CADataset(
-        n_samples=TRAIN_SIZE,
-        seq_len=SEQ_LEN,
-        rule_number=rule_number,
-        steps=1
-    )
-
-    model = CATransformer(seq_len=SEQ_LEN)
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-
-    train(
-        model=model,
-        data_loader=train_loader,
-        device=device,
-        n_epochs=n_epochs,
-        lr=lr
-    )
-
-    return model
-
-
-def show_predictions(
-    rule_number: int,
+    model: CATransformer,
     init_states: torch.Tensor,
     steps: int,
     save_path: str | None = None,
 ) -> None:
-    """Visualizes transformer predictions as histories."""
-
-    model = train_onestep(rule_number)
     n_samples = init_states.shape[0]
     histories = []
 
     for idx in range(n_samples):
-        history = transformer_history(model, init_states[idx], steps)
+        history = transformer_state_history(model, init_states[idx], steps)
         histories.append(history)
         
-    visualize_states(
+    visualize_state_histories(
         histories=torch.stack(histories),
-        title=f"Transformer Prediction Rule {rule_number}",
+        title=f"Transformer predictions: rule {rule_number}",
         save_path=save_path
     )
 
 
-def first_experiment() -> None:
-    """Runs the first experiment with rule number 110 and 1 step."""
+def first_experiment(
+    show_ca: bool = True,
+    show_predictions: bool = True,
+    show_loss_history: bool = True,
+    show_eval_history: bool = True,
+    print_eval: bool = True,
+    random_seed: int | None = None,
+):
+    if random_seed is not None:
+        torch.manual_seed(random_seed)
+
+    save_dir = f"{RESULTS_DIR}/first_experiment"
+
+    rules = [30, 90, 110]
+    seq_len = 32
+    train_steps = 1
+
+    train_size = 100000
+    test_size = 10000
+    batch_size = 128
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    rule_number = 110
-    seq_len = 32
-    steps = 1
+    d_model = 64
+    n_heads = 4
+    n_layers = 2
+    d_ff = 128
+    dropout = 0.1
 
-    train_size = 20000
-    test_size = 2000
-
-    n_epochs = 10
+    n_epochs = 20
     lr = 1e-3
 
-    train_dataset = CADataset(
-        n_samples=train_size,
-        seq_len=seq_len,
-        rule_number=rule_number,
-        steps=steps
-    )
+    init_states = torch.randint(0, 2, (SHOW_N_STATES, seq_len), dtype=torch.long)
 
-    test_dataset = CADataset(
-        n_samples=test_size,
-        seq_len=seq_len,
-        rule_number=rule_number,
-        steps=steps
-    )
+    if show_ca:
+        for rule in rules:
+            visualize_ca(
+                rule_number=rule,
+                init_states=init_states,
+                steps=SHOW_STEPS,
+                save_path=f"{save_dir}/ca_rule_{rule}.png"
+            )
 
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=64)
+    for rule in rules:
+        train_ds = CADataset(train_size, seq_len, rule_number=rule, steps=train_steps)
+        test_ds = CADataset(test_size, seq_len, rule_number=rule, steps=train_steps)
 
-    model = CATransformer(seq_len=seq_len)
+        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_ds, batch_size=batch_size)
 
-    train(
-        model=model,
-        data_loader=train_loader,
-        device=device,
-        n_epochs=n_epochs,
-        lr=lr
-    )
+        model = CATransformer(
+            seq_len=seq_len,
+            d_model=d_model,
+            n_heads=n_heads,
+            n_layers=n_layers,
+            d_ff=d_ff,
+            dropout=dropout,
+        )
 
-    result = evaluate(model, test_loader, device)
-    print(result)
+        history = train(
+            model=model,
+            data_loader=train_loader,
+            device=device,
+            n_epochs=n_epochs,
+            lr=lr,
+        )
+
+        if print_eval:
+            train_metrics = evaluate(model, train_loader, device)
+            test_metrics = evaluate(model, test_loader, device)
+            print("=" * 40)
+            print(f"RULE {rule}")
+            print(f"Train cell accuracy: {train_metrics.cell_accuracy:.4f}, sequence accuracy: {train_metrics.sequence_accuracy:.4f}")
+            print(f"Test cell accuracy: {test_metrics.cell_accuracy:.4f}, sequence accuracy: {test_metrics.sequence_accuracy:.4f}")
+            print("=" * 40)
+
+        if show_loss_history:
+            visualize_loss_history(
+                history=history,
+                title=f"Loss history: rule {rule}",
+                save_path=f"{save_dir}/loss_history_rule_{rule}.png"
+            )
+        
+        if show_eval_history:
+            visualize_metrics_history(
+                history=history,
+                title=f"Evaluation metrics history: rule {rule}",
+                save_path=f"{save_dir}/eval_history_rule_{rule}.png"
+            )
+
+        if show_predictions:
+            visualize_predictions(
+                rule_number=rule,
+                model=model.to("cpu"),
+                init_states=init_states,
+                steps=SHOW_STEPS,
+                save_path=f"{save_dir}/predictions_rule_{rule}.png"
+            )
+
 
 
 if __name__ == "__main__":
-    torch.manual_seed(RANDOM_SEED)
-    init_states = torch.randint(0, 2, (SHOW_N_STATES, SEQ_LEN), dtype=torch.long)
-
-    # show_ca(
-    #     rule_number=30,
-    #     init_states=init_states,
-    #     steps=SHOW_STEPS,
-    #     save_path=CA_RULE_30_SAVE_PATH
-    # )
-    # show_ca(
-    #     rule_number=90,
-    #     init_states=init_states,
-    #     steps=SHOW_STEPS,
-    #     save_path=CA_RULE_90_SAVE_PATH
-    # )
-    # show_ca(
-    #     rule_number=110,
-    #     init_states=init_states,
-    #     steps=SHOW_STEPS,
-    #     save_path=CA_RULE_110_SAVE_PATH
-    # )
-
-    show_predictions(
-        rule_number=30,
-        init_states=init_states,
-        steps=SHOW_STEPS,
-        save_path=TRANSFORMER_RULE_30_SAVE_PATH
+    first_experiment(
+        random_seed=RANDOM_SEED,
     )
-    show_predictions(
-        rule_number=90,
-        init_states=init_states,
-        steps=SHOW_STEPS,
-        save_path=TRANSFORMER_RULE_90_SAVE_PATH
-    )
-    show_predictions(
-        rule_number=110,
-        init_states=init_states,
-        steps=SHOW_STEPS,
-        save_path=TRANSFORMER_RULE_110_SAVE_PATH
-    )
-
-    # first_experiment()

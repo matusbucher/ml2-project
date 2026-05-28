@@ -1,6 +1,7 @@
+from dataclasses import dataclass
+
 import torch
 from torch.utils.data import DataLoader
-
 
 
 class CATransformer(torch.nn.Module):
@@ -40,20 +41,69 @@ class CATransformer(torch.nn.Module):
         h = self.encoder(h)
         logits = self.out(h)
         return logits
+    
+@dataclass
+class EvalMetrics:
+    cell_accuracy: float
+    sequence_accuracy: float
 
 
+class TrainHistory:
+    def __init__(self):
+        self.losses: list[float] = []
+        self.eval_metrics: list[EvalMetrics] = []
+    
+    def __len__(self):
+        return len(self.losses)
+    
+    def add_epoch(self,
+        loss: float, 
+        eval_metrics: EvalMetrics
+    ) -> None:
+        self.losses.append(loss)
+        self.eval_metrics.append(eval_metrics)
+
+
+@torch.no_grad()
+def evaluate(
+    model: CATransformer,
+    data_loader: DataLoader,
+    device: str,
+) -> EvalMetrics:
+    model.eval()
+
+    total_cells = 0
+    correct_cells = 0
+    total_sequences = 0
+    correct_sequences = 0
+
+    with torch.no_grad():
+        for x, y in data_loader:
+            x, y = x.to(device), y.to(device)
+            predictions = model(x).argmax(dim=-1)
+            correct = predictions == y
+            correct_cells += correct.sum().item()
+            total_cells += correct.numel()
+            correct_sequences += (correct.all(dim=1)).sum().item()
+            total_sequences += x.size(0)
+
+    return EvalMetrics(
+        cell_accuracy=correct_cells / total_cells,
+        sequence_accuracy=correct_sequences / total_sequences,
+    )
+
+    
 def train(
     model: CATransformer,
     data_loader: DataLoader,
     device: str,
     n_epochs: int = 10,
     lr: float = 1e-3,
-) -> None:
-    """Trains the transformer model on the cellular automaton dataset."""
-    
+) -> TrainHistory:
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = torch.nn.CrossEntropyLoss()
+    history = TrainHistory()
 
     for epoch in range(n_epochs):
         model.train()
@@ -72,36 +122,8 @@ def train(
             total_loss += loss.item()
 
         avg_loss = total_loss / len(data_loader)
+        eval_metrics = evaluate(model, data_loader, device)
+        history.add_epoch(avg_loss, eval_metrics)
         print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {avg_loss:.4f}")
 
-
-def evaluate(
-    model: CATransformer,
-    data_loader: DataLoader,
-    device: str,
-) -> dict[str, float]:
-    """Evaluates the transformer model on the cellular automaton dataset."""
-    
-    model.eval()
-    
-    total_cells = 0
-    correct_cells = 0
-    total_sequences = 0
-    correct_sequences = 0
-
-    with torch.no_grad():
-        for x, y in data_loader:
-            x, y = x.to(device), y.to(device)
-
-            predictions = model(x).argmax(dim=-1)
-
-            correct = predictions == y
-            correct_cells += correct.sum().item()
-            total_cells += correct.numel()
-            correct_sequences += (correct.all(dim=1)).sum().item()
-            total_sequences += x.size(0)
-    
-    return {
-        "cell_accuracy": correct_cells / total_cells,
-        "sequence_accuracy": correct_sequences / total_sequences,
-    }
+    return history
