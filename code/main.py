@@ -1,3 +1,5 @@
+import os
+
 from data_generation import *
 from transformer import *
 from visualize import *
@@ -65,6 +67,8 @@ def first_experiment(
         torch.manual_seed(random_seed)
 
     save_dir = f"{RESULTS_DIR}/first_experiment"
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
     rules = [30, 90, 110]
     seq_len = 32
