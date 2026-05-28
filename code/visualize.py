@@ -10,7 +10,7 @@ def ca_history(
     init_state: torch.Tensor,
     steps: int,
 ) -> torch.Tensor:
-    """Generates the history of     a cellular automaton given an initial state and number of steps."""
+    """Generates the history of a cellular automaton."""
     
     history = [init_state.clone()]
     current_state = init_state.clone()
@@ -23,15 +23,33 @@ def ca_history(
     return torch.stack(history)
 
 
-def visualize_ca(
-    ca: CellularAutomaton,
-    init_states: torch.Tensor,
+def transformer_history(
+    model: torch.nn.Module,
+    init_state: torch.Tensor,
     steps: int,
+) -> torch.Tensor:
+    """Generates the history of a transformer model."""
+    
+    history = [init_state.clone()]
+    current_state = init_state.clone()
+
+    for _ in range(steps):
+        with torch.no_grad():
+            next_state = model(current_state.unsqueeze(0)).squeeze(0).argmax(dim=-1)
+        history.append(next_state)
+        current_state = next_state
+    
+    return torch.stack(history)
+
+
+def visualize_states(
+    histories: torch.Tensor,
+    title: str | None = None,
     save_path: str | None = None,
 ) -> None:
-    """Visualizes the history (or more) of a cellular automaton as a grid of pixel images."""
+    """Visualizes a grid of pre-generated histories as pixel images."""
 
-    n_samples = init_states.shape[0]
+    n_samples = histories.shape[0]
     n_cols = int(np.ceil(np.sqrt(n_samples)))
     n_rows = int(np.ceil(n_samples / n_cols))
     
@@ -39,17 +57,21 @@ def visualize_ca(
     axes = axes.flatten()
     
     for idx in range(n_samples):
-        history = ca_history(ca, init_states[idx], steps)
-        history_np = history.cpu().numpy().astype(np.uint8)
+        history_np = histories[idx].cpu().numpy().astype(np.uint8)
         
         ax = axes[idx]
         im = ax.imshow(history_np, cmap='gray_r', aspect='auto', interpolation='nearest')
-        ax.set_title(f'Initial state {idx}')
-        ax.set_xlabel('Position')
-        ax.set_ylabel('Time step')
+        ax.set_title(f'Sample {idx + 1}')
+        ax.set_xticks([])
+        
+        if idx == 0:
+            ax.set_ylabel('Time step')
     
     for idx in range(n_samples, len(axes)):
         axes[idx].axis('off')
+    
+    if title is not None:
+        fig.suptitle(title, fontsize=14, fontweight='bold')
     
     plt.tight_layout()
     
