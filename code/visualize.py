@@ -25,6 +25,7 @@ def transformer_trajectory(
 
 def visualize_trajectories(
     trajectories: list[np.ndarray],
+    labels: list[str] | None = None,
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
@@ -40,8 +41,12 @@ def visualize_trajectories(
         
         ax = axes[idx]
         im = ax.imshow(history_np, cmap="gray_r", aspect="auto", interpolation="nearest")
-        ax.set_title(f"Sample {idx + 1}")
         ax.set_xticks([])
+
+        if labels is not None and idx < len(labels):
+            ax.set_title(labels[idx], fontsize=20)
+        else:
+            ax.set_title(f"Sample {idx + 1}", fontsize=18)
         
         if idx == 0:
             ax.set_ylabel("Time step")
@@ -50,7 +55,7 @@ def visualize_trajectories(
         axes[idx].axis("off")
     
     if title is not None:
-        fig.suptitle(title, fontsize=14, fontweight="bold")
+        fig.suptitle(title, fontsize=28, fontweight="bold")
     
     plt.tight_layout()
     
@@ -102,6 +107,7 @@ def visualize_metrics_history(
     plt.title("Cell accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
+    plt.ylim(0.0, 1.0)
     plt.grid(True)
     
     max_epoch = len(history)
@@ -113,6 +119,7 @@ def visualize_metrics_history(
     plt.title("Sequence accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
+    plt.ylim(0.0, 1.0)
     plt.grid(True)
     
     plt.xticks(tick_positions)
@@ -162,20 +169,35 @@ def visualize_multiple_metrics_histories(
 ) -> None:
     plt.figure(figsize=(12, 5))
     
+    plt.subplot(1, 2, 1)
     for label, history in histories.items():
         epochs = range(1, len(history) + 1)
-        plt.plot(epochs, [m.cell_accuracy for m in history.eval_metrics], marker="o", label=f"{label} - Cell Acc")
-        plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="x", label=f"{label} - Seq Acc")
-    
+        plt.plot(epochs, [m.cell_accuracy for m in history.eval_metrics], marker="o", label=label)
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.title(title if title is not None else "Evaluation Metrics History")
+    plt.title("Cell Accuracy")
+    plt.ylim(0.0, 1.0)
     plt.grid(True)
     plt.legend()
     
     max_epoch = max(len(h) for h in histories.values())
     tick_positions = list(range(5, max_epoch + 1, 5))
     plt.xticks(tick_positions)
+    
+    plt.subplot(1, 2, 2)
+    for label, history in histories.items():
+        epochs = range(1, len(history) + 1)
+        plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="x", label=label)
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title("Sequence Accuracy")
+    plt.ylim(0.0, 1.0)
+    plt.grid(True)
+    plt.legend()
+    plt.xticks(tick_positions)
+
+    if title is not None:
+        plt.suptitle(title, fontsize=14, fontweight="bold")
 
     if save_path is not None:
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
