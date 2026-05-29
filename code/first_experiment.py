@@ -119,9 +119,16 @@ def first_experiment(
             visualize_attention(
                 attention_weights=attention,
                 layer_idx=0,
-                title=f"Average attention weights (test set): rule {rule}",
-                save_path=f"{save_results_dir}/attention_rule_{rule}.png"
+                title=f"Average attention weights, first layer: rule {rule}",
+                save_path=f"{save_results_dir}/attention_layer_0_rule_{rule}.png"
             )
+            visualize_attention(
+                attention_weights=attention,
+                layer_idx=1,
+                title=f"Average attention weights, second layer: rule {rule}",
+                save_path=f"{save_results_dir}/attention_layer_1_rule_{rule}.png"
+            )
+
     
     if show_loss_history:
         visualize_multiple_loss_histories(

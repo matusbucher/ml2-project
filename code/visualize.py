@@ -275,15 +275,6 @@ def visualize_attention(
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
-    """
-    Visualize attention weights as a grid of heatmaps for all heads in a layer.
-    
-    Args:
-        attention_weights: List of attention tensors with shape (heads, seq_len, seq_len)
-        layer_idx: Which layer to visualize
-        title: Title for the figure
-        save_path: Path to save the figure
-    """
     if not attention_weights or layer_idx >= len(attention_weights):
         print(f"Invalid layer index: {layer_idx}")
         return
@@ -308,7 +299,7 @@ def visualize_attention(
         attn_head = attn_np[head_idx]
         
         im = ax.imshow(attn_head, cmap="viridis", aspect="auto")
-        ax.set_title(f"Head {head_idx}", fontsize=10)
+        ax.set_title(f"Head {head_idx}", fontsize=18)
         ax.set_xlabel("Key position")
         ax.set_ylabel("Query position")
         
@@ -318,9 +309,9 @@ def visualize_attention(
         axes[idx].axis("off")
     
     if title is not None:
-        fig.suptitle(title, fontsize=14, fontweight="bold")
+        fig.suptitle(title, fontsize=28, fontweight="bold")
     else:
-        fig.suptitle(f"Attention Weights - Layer {layer_idx}", fontsize=14, fontweight="bold")
+        fig.suptitle(f"Attention Weights - Layer {layer_idx}", fontsize=28, fontweight="bold")
     
     plt.tight_layout()
     
