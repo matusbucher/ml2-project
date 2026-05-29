@@ -109,8 +109,47 @@ class CATransformer(nn.Module):
         x: torch.Tensor,
     ) -> list[torch.Tensor]:
         self.eval()
+        
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        
         _, attentions = self.forward(x, return_attention=True)
-        return attentions if isinstance(attentions, list) else []
+        
+        if attentions and isinstance(attentions, list):
+            return [attn.mean(dim=0) for attn in attentions]
+        
+        return []
+
+    @torch.no_grad()
+    def get_average_attention(self,
+        data_loader: DataLoader,
+        device: str | None = None,
+    ) -> list[torch.Tensor]:
+        self.eval()
+        
+        all_attentions = None
+        total_samples = 0
+        
+        for batch_x, _ in data_loader:
+            if device is not None:
+                batch_x = batch_x.to(device)
+            
+            _, batch_attentions = self.forward(batch_x, return_attention=True)
+            
+            if batch_attentions and isinstance(batch_attentions, list):
+                if all_attentions is None:
+                    all_attentions = [attn.sum(dim=0) for attn in batch_attentions]
+                else:
+                    for i, attn in enumerate(batch_attentions):
+                        all_attentions[i] += attn.sum(dim=0)
+            
+            total_samples += batch_x.size(0)
+        
+        if all_attentions is not None:
+            for i in range(len(all_attentions)):
+                all_attentions[i] = all_attentions[i] / total_samples
+        
+        return all_attentions if all_attentions is not None else []
 
     @torch.no_grad()
     def predict(self,
