@@ -8,8 +8,8 @@ from visualize import *
 
 RANDOM_SEED = 42
 
-SHOW_STEPS = 30
-SHOW_N_STATES = 9
+SHOW_STEPS = 32
+SHOW_N_STATES = 4
 
 RESULTS_DIR = "results"
 
@@ -53,7 +53,29 @@ def visualize_predictions(
     )
 
 
+def visualize_ca_rules(
+    rule_numbers: list[int],
+    init_state: np.ndarray,
+    steps: int,
+    save_path: str | None = None,
+) -> None:
+    trajectories = []
+    for rule_number in rule_numbers:
+        ca = CellularAutomaton(rule_number)
+        trajectory = ca.trajectory(init_state, steps=steps, memoize=False)
+        trajectories.append(trajectory)
+
+    labels = [f"Rule {rule_number}" for rule_number in rule_numbers]
+    visualize_trajectories(
+        trajectories=trajectories,
+        labels=labels,
+        title=f"CA rules comparison",
+        save_path=save_path
+    )
+
+
 def first_experiment(
+    do_train: bool = True,
     show_ca: bool = True,
     show_predictions: bool = True,
     show_loss_history: bool = True,
@@ -68,7 +90,7 @@ def first_experiment(
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    rules = [30, 90, 110]
+    rules = [30, 90, 110, 184]
     seq_len = 32
     train_steps = 1
 
@@ -96,6 +118,9 @@ def first_experiment(
                 steps=SHOW_STEPS,
                 save_path=f"{save_dir}/ca_rule_{rule}.png"
             )
+    
+    if not do_train:
+        return
 
     histories = []
 
@@ -172,6 +197,14 @@ def first_experiment(
 
 
 if __name__ == "__main__":
+    # visualize_ca_rules(
+    #     rule_numbers=[30, 90, 110, 184],
+    #     init_state=cpl.init_simple(32),
+    #     steps=SHOW_STEPS,
+    #     save_path=f"{RESULTS_DIR}/ca_rules_comparison.png"
+    # )
+
     first_experiment(
+        do_train=False,
         random_seed=RANDOM_SEED,
     )
