@@ -2,6 +2,7 @@ from data_generation import *
 from transformer import *
 from visualize import *
 from first_experiment import *
+from constants import *
 
 
 def test(
@@ -40,8 +41,12 @@ def test(
     x = torch.randint(0, 2, (1, SEQ_LEN), dtype=torch.long)
     x = x.to(device)
 
-    attention, _ = model.get_attention(x)
-    visualize_attention(attention_weights=attention)
+    attention = model.get_attention(x)
+    visualize_attention(
+        attention_weights=attention,
+        title="Attention weights for a random input",
+        save_path=f"{RESULTS_DIR}/attention_weights.png"
+    )
 
 
 if __name__ == "__main__":
@@ -52,12 +57,19 @@ if __name__ == "__main__":
     #     save_path=f"{RESULTS_DIR}/ca_rules_comparison.png"
     # )
 
-    # first_experiment(
-    #     do_train=False,
-    #     random_seed=RANDOM_SEED,
+    # test(
+    #     load=True,
+    #     save_path=f"{SAVED_MODELS_DIR}/catransformer_rule110.pth",
     # )
 
-    test(
-        load=False,
-        save_path=f"{RESULTS_DIR}/catransformer_rule110.pth",
+    first_experiment(
+        save_models=False,
+        load_models=True,
+        show_ca=False,
+        show_predictions=False,
+        show_loss_history=False,
+        show_eval_history=False,
+        show_attention=True,
+        print_eval=False,
+        random_seed=RANDOM_SEED,
     )
