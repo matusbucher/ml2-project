@@ -2,9 +2,60 @@ from dataclasses import dataclass
 
 import torch
 from torch.utils.data import DataLoader
+import torch.nn as nn
 
 
-class CATransformer(torch.nn.Module):
+class CATransformerEncoderLayer(nn.Module):
+    """Transformer encoder layer that can return attention weights."""
+
+    def __init__(self,
+        d_model: int,
+        n_heads: int,
+        d_ff: int,
+        dropout: float,
+    ):
+        super().__init__()
+
+        self.self_attn = nn.MultiheadAttention(
+            embed_dim=d_model,
+            num_heads=n_heads,
+            dropout=dropout,
+            batch_first=True,
+        )
+
+        self.linear1 = nn.Linear(d_model, d_ff)
+        self.linear2 = nn.Linear(d_ff, d_model)
+
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+
+        self.dropout = nn.Dropout(dropout)
+        self.dropout_attn = nn.Dropout(dropout)
+        self.dropout_ff = nn.Dropout(dropout)
+
+        self.activation = nn.GELU()
+
+    def forward(self,
+        x: torch.Tensor,
+        return_attention: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        attn_output, attn_weights = self.self_attn(x, x, x,
+            need_weights=return_attention,
+            average_attn_weights=False,
+        )
+
+        x = self.norm1(x + self.dropout_attn(attn_output))
+
+        ff = self.linear2(self.dropout(self.activation(self.linear1(x))))
+        x = self.norm2(x + self.dropout_ff(ff))
+
+        if return_attention:
+            return x, attn_weights
+
+        return x, None
+
+
+class CATransformer(nn.Module):
     """A transformer model for learning cellular automaton rules."""
     
     def __init__(self,
@@ -17,31 +68,59 @@ class CATransformer(torch.nn.Module):
     ):
         super().__init__()
 
-        self.token_emb = torch.nn.Embedding(2, d_model)
-        self.pos_emb = torch.nn.Parameter(torch.randn(1, seq_len, d_model) * 0.02)
+        self.token_emb = nn.Embedding(2, d_model)
+        self.pos_emb = nn.Parameter(torch.randn(1, seq_len, d_model) * 0.02)
 
-        encoder_layer = torch.nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=n_heads,
-            dim_feedforward=d_ff,
-            dropout=dropout,
-            batch_first=True,
-            activation="gelu",
-        )
+        self.layers = nn.ModuleList([
+            CATransformerEncoderLayer(
+                d_model=d_model,
+                n_heads=n_heads,
+                d_ff=d_ff,
+                dropout=dropout,
+            )
+            for _ in range(n_layers)
+        ])
 
-        self.encoder = torch.nn.TransformerEncoder(
-            encoder_layer,
-            num_layers=n_layers,
-        )
+        self.out = nn.Linear(d_model, 2)
 
-        self.out = torch.nn.Linear(d_model, 2)
-    
-    def forward(self, x):
+    def forward(self,
+        x: torch.Tensor,
+        return_attention: bool = False,
+    ) -> tuple[torch.Tensor, list[torch.Tensor]] | torch.Tensor:
         h = self.token_emb(x) + self.pos_emb[:, :x.size(1), :]
-        h = self.encoder(h)
+
+        attentions = []
+
+        for layer in self.layers:
+            h, attn = layer(h, return_attention=return_attention)
+
+            if return_attention:
+                attentions.append(attn)
+
         logits = self.out(h)
+
+        if return_attention:
+            return logits, attentions
+
         return logits
-    
+
+    @torch.no_grad()
+    def get_attention(self,
+        x: torch.Tensor,
+    ) -> list[torch.Tensor]:
+        self.eval()
+        _, attentions = self.forward(x, return_attention=True)
+        return attentions if isinstance(attentions, list) else []
+
+    @torch.no_grad()
+    def predict(self,
+        x: torch.Tensor,
+    ) -> torch.Tensor:
+        self.eval()
+        logits, _ = self.forward(x)
+        return logits.argmax(dim=-1)
+
+
 @dataclass
 class EvalMetrics:
     cell_accuracy: float
@@ -53,12 +132,12 @@ class TrainHistory:
         self.losses: list[float] = []
         self.eval_metrics: list[EvalMetrics] = []
     
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.losses)
     
     def add_epoch(self,
         loss: float, 
-        eval_metrics: EvalMetrics
+        eval_metrics: EvalMetrics,
     ) -> None:
         self.losses.append(loss)
         self.eval_metrics.append(eval_metrics)
@@ -68,8 +147,11 @@ class TrainHistory:
 def evaluate(
     model: CATransformer,
     data_loader: DataLoader,
-    device: str,
+    device: str | None = None,
 ) -> EvalMetrics:
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
     model.eval()
 
     total_cells = 0
@@ -96,13 +178,16 @@ def evaluate(
 def train(
     model: CATransformer,
     data_loader: DataLoader,
-    device: str,
-    n_epochs: int = 10,
+    device: str | None = None,
+    n_epochs: int = 20,
     lr: float = 1e-3,
 ) -> TrainHistory:
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = nn.CrossEntropyLoss()
     history = TrainHistory()
 
     for epoch in range(n_epochs):
@@ -127,3 +212,25 @@ def train(
         print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {avg_loss:.4f}")
 
     return history
+
+
+def save_model(
+    model: CATransformer,
+    save_path: str,
+) -> None:
+    torch.save(model.state_dict(), save_path)
+    print(f"Model saved to {save_path}")
+
+
+def load_model(
+    model: CATransformer,
+    load_path: str,
+    device: str | None = None,
+) -> CATransformer:
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    model.load_state_dict(torch.load(load_path, map_location=device))
+    model.to(device)
+    print(f"Model loaded from {load_path}")
+    return model
