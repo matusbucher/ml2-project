@@ -19,6 +19,8 @@ class CellularAutomaton:
         steps: int,
         memoize: bool = True,
     ) -> np.ndarray:
+        initial_state = np.atleast_2d(initial_state)
+
         evolved = cpl.evolve(
             initial_state,
             timesteps=steps + 1,
@@ -34,7 +36,8 @@ class CellularAutomaton:
         steps: int,
         memoize: bool = True,
     ) -> np.ndarray:
-        return self.trajectory(initial_state, steps, memoize)[-1]
+        result = self.trajectory(initial_state, steps, memoize)[-1]
+        return result.squeeze()
 
 
 class CADataset(Dataset):
@@ -60,7 +63,7 @@ class CADataset(Dataset):
         return self.n_samples
 
     def __getitem__(self, idx):
-        x = cpl.init_random(self.seq_len)
+        x = cpl.init_random(self.seq_len).squeeze()
         y = self.ca.evolve(x, steps=self.steps)
 
         return torch.from_numpy(x).long(), torch.from_numpy(y).long()
