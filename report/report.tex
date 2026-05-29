@@ -64,12 +64,23 @@ Formally, a one-dimensional CA is defined as a tuple $\mathcal{A} = (r, \mathbb{
 $$ x^{(t+1)}_i = f(x^{(t)}_{i-r}, ...,  x^{(t)}_i, ..., x^{(t)}_{i+r}) $$
 where $x^{(t)}_i$ denotes the state of the $i$-th cell at time $t$. We assume periodic boundary conditions, meaning that the first and last cells are considered neighbors.
 
-In the case of ECA, we have $r = 1$ and $\mathbb{S} = \{0, 1\}$. The update function $f$ can be represented as a lookup table that maps each of the $2^{3} = 8$ possible neighborhood configurations to a binary output. Therefore, each ECA rule can be encoded as an 8-bit binary number, resulting in $2^8 = 256$ possible rules. Some of the well-known ECA rules include Rule 30~\cite{rule30}, Rule 90~\cite{rule90}, Rule 110~\cite{rule110}, and Rule 184~\cite{rule184}. Evolution of these rules from a simple initial configuration (a single active cell in the center) is shown in \cref{fig:ca-rules-comparison}.
+In the case of ECA, we have $r = 1$ and $\mathbb{S} = \{0, 1\}$. The update function $f$ can be represented as a lookup table that maps each of the $2^{3} = 8$ possible neighborhood configurations to a binary output. Therefore, each ECA rule can be encoded as an 8-bit binary number, resulting in $2^8 = 256$ possible rules. Some of the well-known ECA rules include Rule 30~\cite{rule30}, Rule 90~\cite{rule90}, Rule 110~\cite{rule110}, and Rule 184~\cite{rule184}.
+
+We chose these four rules for our experiments because they exhibit a range of behaviors, from ordered (Rule 184) to chaotic (Rule 30 and Rule 110). Stephen Wolfram~\cite{wolfram} classified CA rules into four classes based on their long-term behavior, Class I being the most ordered and Class IV being the most complex.
+
+\begin{itemize}
+    \item \textbf{Rule 30} (class III) -- Exhibits aperiodic, chaotic behavior, has been used as a random number generator.
+    \item \textbf{Rule 90} (class III) -- Based on XOR operation\footnote{Rule 90's update rule is $x^{(t+1)}_i = x^{(t)}_{i-1} \oplus x^{(t)}_{i+1}$. It does not depend on the current state of the cell itself.}, produces a fractal-like pattern known as the Sierpinski triangle.
+    \item \textbf{Rule 110} (class IV) -- Known to be Turing complete and considered to be the most complex ECA rule, similar to Conway's Game of Life~\cite{gameoflife}.
+    \item \textbf{Rule 184} (class II) -- Models traffic flow and exhibits more ordered behavior with clear moving patterns.
+\end{itemize}
+
+Evolution of these rules from a simple initial configuration (a single active cell in the center) is shown in \cref{fig:ca-rules-comparison}.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\linewidth]{../results/ca_rules_comparison.png}
-    \caption{Comparison of ECA rules 30, 90, 110, and 184 from the initial configuration with a single active cell in the center.}
+    \caption{Comparison of ECA rules trajectories: (top-left) Rule 30, (top-right) Rule 90, (bottom-left) Rule 110, and (bottom-right) Rule 184. Each image shows the evolution of the rule from a simple initial configuration (a single active cell in the center).}
     \label{fig:ca-rules-comparison}
 \end{figure}
 
@@ -115,6 +126,18 @@ The Transformer model uses the following hyperparameters:
 The model is trained using the Adam optimizer with learning rate $\text{lr} = 10^{-3}$ and cross-entropy loss.
 
 
+\subsection{Comparison to Previous Work}
+\label{sec:comparison}
+
+Compared to the work by Burtsev~\cite{burtsev}, our model is significantly smaller. Burtsev used the same Transformer model with full self-attention, but with $d_{\text{model}} = 512$, $n_{\text{heads}} = 8$, and $n_{\text{layers}} = 4$.
+
+However, they worked with cellular automata of width $W = 20$ and radius $r = 2$. In contrast, we focus on ECA with $W = 32$ and $r = 1$ (see \cref{sec:experimental-setup}), which has a smaller input space and simpler dynamics.
+
+They also use a slightly larger input vocabulary, including special token [SEP] for separating multiple states in the input and mask token [M], which takes place of the state or rule to be predicted.
+
+While Burtsev's work focused on predicting next states and/or rules for an arbitrary CA, we focus on learning the next state for a fixed set of ECA rules. We aim to analyze and compare the learning dynamics of the model across different rules with varying degrees of complexity and structure. Then, we will explore the model's ability to generalize to longer sequences and multiple steps prediction.
+
+
 \section{First Experiment}
 \label{sec:first-experiment}
 
@@ -142,7 +165,7 @@ The dataset sizes are:
     \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_90.png} \\
     \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_110.png}
     \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_184.png}
-    \caption{CA rule evolution from random initial states: (top-left) Rule 30 showing chaotic behavior; (top-right) Rule 90 showing symmetric periodic patterns; (bottom-left) Rule 110 showing complex dynamics; (bottom-right) Rule 184 showing traffic-flow dynamics.}
+    \caption{CA rule evolution from random initial states: (top-left) Rule 30, (top-right) Rule 90, (bottom-left) Rule 110, (bottom-right) Rule 184.}
     \label{fig:ca-examples}
 \end{figure}
 
@@ -152,7 +175,7 @@ We use a batch size of $128$ for training and the model is trained for $20$ epoc
 \subsection{Results}
 \label{sec:results}
 
-The model's training progress for each rule is shown in \cref{fig:loss-history} and accuracy metrics progress is shown in \cref{fig:eval-history}.
+The model's training progress for each rule is shown in \cref{fig:loss-history} and accuracy metrics progress is shown in \cref{fig:eval-history}. All four rules were successfully learned by the model, achieving near-zero training loss and perfect, 100\% accuracy on the test set.
 
 \begin{figure}[ht]
     \centering
@@ -164,27 +187,36 @@ The model's training progress for each rule is shown in \cref{fig:loss-history} 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\linewidth]{../results/first_experiment/eval_history_comparison.png}
-    \caption{Evaluation metrics comparison: (left) Cell-wise accuracy; (right) Sequence-wise accuracy. Each curve represents one of the four rules. Both metrics stabilize within a few epochs.}
+    \caption{Evaluation metrics comparison during training: (left) cell-wise accuracy, (right) sequence-wise accuracy.}
     \label{fig:eval-history}
 \end{figure}
 
-The first experiment demonstrates that the CATransformer model can perfectly learn the update rules of different elementary cellular automata. Key observations:
+Training loss of all rules started at around $\ln(2) \approx 0.693$ (random guessing in a binary classification task), then dropped rapidly to near-zero values. However, the duration of the initial plateau varied across rules -- Rule 184 started converging fastest (around epoch 3), followed by Rule 110 and Rule 30 (around epoch 5), while Rule 90 exhibited a much longer plateau, only starting converging around epoch 10. The evaluation metrics confirm this behavior, reaching perfect accuracy around the same epochs as the loss convergence.
+
+These results don't support our initial hypothesis that Rules 90 and 184 would be easier to learn than Rules 30 and 110. In fact, Rule 90 was the most difficult to optimize, despite the fact that it's based on a simple XOR operation. On the other hand, Rule 30 and more surprisingly Rule 110, which have much more complex dynamics, were learned much faster than Rule 90. Rule 184, which has a more structured and ordered behavior, was the easiest to learn as expected.
+
+We also analyzed the attention maps of the trained models for both layers, shown in \cref{fig:attention}. The attention weights were averaged across all test samples. We observed the following patterns for each rule:
 
 \begin{itemize}
-    \item \textbf{Perfect Generalization:} All models achieve 100\% accuracy on both cell-wise and sequence-wise metrics on the test set, indicating that the learned rules generalize perfectly to unseen random initial states.
-    
-    \item \textbf{Rule-Dependent Convergence:} The speed of convergence varies significantly across rules:
-    \begin{itemize}
-        \item \textbf{Rule 30 (Chaotic):} Fastest convergence with dramatic loss drop at epoch 6 (from 0.6499 to 0.0343), reaching very low loss (0.0002--0.0004) by epoch 7.
-        \item \textbf{Rule 110 (Complex):} Fast convergence with loss dropping from 0.6085 at epoch 3 to 0.0056 at epoch 5, stabilizing below 0.004 afterward.
-        \item \textbf{Rule 184 (Traffic-flow):} Moderate convergence, loss drops to 0.0399 by epoch 5, with minor volatility in epochs 9--15 before stabilizing.
-        \item \textbf{Rule 90 (Symmetric):} Slowest convergence, maintaining high loss (>0.69) until epoch 8, then dropping significantly at epoch 10 (0.3437), and reaching stable low loss by epoch 11.
-    \end{itemize}
-    
-    \item \textbf{Convergence Pattern Analysis:} The convergence curves suggest that the model's learning difficulty is correlated with the structural properties of the rules. Rule 90, which exhibits symmetric patterns with high regularity, shows the slowest initial convergence, possibly requiring the model to discover the rule's latent symmetry structure. In contrast, Rule 30, despite its chaotic appearance, exhibits the most abrupt transition to mastery.
-    
-    \item \textbf{Architecture Suitability:} The Transformer's multi-head self-attention mechanism is demonstrably effective for learning local update rules in cellular automata. The model successfully learns all tested rules despite their diverse dynamical properties.
+    \item \textbf{Rule 30} -- Attention maps show strong diagonal patterns for all heads in both layers, indicating that the model is attending to local information.
+    \item \textbf{Rule 90} -- Attention maps show diagonal patterns, but only for the first layer. We can see only the double diagonal pattern, which corresponds to the fact that Rule 90's update function depends only on the left and right neighbors. However, the attention maps for second layer show very strange point in top-left area.
+    \item \textbf{Rule 110} -- Attention maps are most heterogeneous. In the first layer, some heads show weaker diagonal patterns, but also diffuse (global) and vertical patterns. In the second layer, the attention maps are more diagonal, but not as clear as for Rule 30 or 90. This may indicate that the model is learning a more complex representation of the input.
+    \item \textbf{Rule 184} -- Similar to Rule 110, the first layer attention maps show rather diffuse patterns, while the second layer shows ``broken'' diagonal patterns. This is an interesting finding, since Rule 184 should be more ordered and structured than Rule 110.
 \end{itemize}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_0_rule_30.png}
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_1_rule_30.png} \\
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_0_rule_90.png}
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_1_rule_90.png} \\
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_0_rule_110.png}
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_1_rule_110.png} \\
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_0_rule_184.png}
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/attention_layer_1_rule_184.png}
+    \caption{Attention weights for both layer (first layer left, second layer right): from top to bottom, Rule 30, Rule 90, Rule 110, Rule 184. Each image shows the average attention weights across all test samples.}
+    \label{fig:attention}
+\end{figure}
 
 
 \section{Conclusion}
