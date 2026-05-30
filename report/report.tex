@@ -191,18 +191,13 @@ The model's training progress for each rule is shown in \cref{fig:loss-history} 
     \label{fig:eval-history}
 \end{figure}
 
-Training loss of all rules started at around $\ln(2) \approx 0.693$ (random guessing in a binary classification task), then dropped rapidly to near-zero values. However, the duration of the initial plateau varied across rules -- Rule 184 started converging fastest (around epoch 3), followed by Rule 110 and Rule 30 (around epoch 5), while Rule 90 exhibited a much longer plateau, only starting converging around epoch 10. The evaluation metrics confirm this behavior, reaching perfect accuracy around the same epochs as the loss convergence.
+Training loss of all rules started at around $\ln(2) \approx 0.693$ (random guessing in a binary classification task), then dropped rapidly to near-zero values. This sudden drop in loss is a common phenomenom when training transformers on algorithmic tasks, called ``abrupt learning''~\cite{abrupt-learning} or ``grokking''~\cite{grokking}. It is often interpreted as the model gradually organizing its internal representations until it suddenly discovers a generalizable solution -- in this case, the underlying local ECA rule.
 
-These results don't support our initial hypothesis that Rules 90 and 184 would be easier to learn than Rules 30 and 110. In fact, Rule 90 was the most difficult to optimize, despite the fact that it's based on a simple XOR operation. On the other hand, Rule 30 and more surprisingly Rule 110, which have much more complex dynamics, were learned much faster than Rule 90. Rule 184, which has a more structured and ordered behavior, was the easiest to learn as expected.
+The duration of the initial plateau varied across rules -- Rules 110 and 184 started converging fastest (epoch 3), followed by Rule 30 (epoch 5), while Rule 90 exhibited a much longer plateau, only starting converging around epoch 9. The evaluation metrics confirm this behavior, reaching perfect accuracy around the same epochs as the loss convergence.
 
-We also analyzed the attention maps of the trained models for both layers, shown in \cref{fig:attention}. The attention weights were averaged across all test samples. We observed the following patterns for each rule:
+These results don't really support our initial hypothesis that Rules 90 and 184 would be easier to learn than Rules 30 and 110. In fact, Rule 90 was the most difficult to optimize, despite the fact that it's based on a simple XOR operation. On the other hand, Rule 30 and more surprisingly Rule 110, which have much more complex dynamics, were learned much faster than Rule 90.
 
-\begin{itemize}
-    \item \textbf{Rule 30} -- Attention maps show strong diagonal patterns for all heads in both layers, indicating that the model is attending to local information.
-    \item \textbf{Rule 90} -- Attention maps show diagonal patterns, but only for the first layer. We can see only the double diagonal pattern, which corresponds to the fact that Rule 90's update function depends only on the left and right neighbors. However, the attention maps for second layer show very strange point in top-left area.
-    \item \textbf{Rule 110} -- Attention maps are most heterogeneous. In the first layer, some heads show weaker diagonal patterns, but also diffuse (global) and vertical patterns. In the second layer, the attention maps are more diagonal, but not as clear as for Rule 30 or 90. This may indicate that the model is learning a more complex representation of the input.
-    \item \textbf{Rule 184} -- Similar to Rule 110, the first layer attention maps show rather diffuse patterns, while the second layer shows ``broken'' diagonal patterns. This is an interesting finding, since Rule 184 should be more ordered and structured than Rule 110.
-\end{itemize}
+We also analyzed the attention maps of the trained models for both layers, shown in \cref{fig:attention}. The attention weights were averaged across all test samples. All four rules show a similar diagonal pattern in some of their attention heads, which indicates that the model is attending to the local information. This is expected behavior since ECA rules are local. We can also see some heads with diffuse attention patterns, most notably in Rule 110 first layer. On the other hand, Rule 30 displays the diagonal pattern most clearly out of all rules.
 
 \begin{figure}[ht]
     \centering
@@ -217,6 +212,16 @@ We also analyzed the attention maps of the trained models for both layers, shown
     \caption{Attention weights for both layer (first layer left, second layer right): from top to bottom, Rule 30, Rule 90, Rule 110, Rule 184. Each image shows the average attention weights across all test samples.}
     \label{fig:attention}
 \end{figure}
+
+
+\section{Generalization of the Model}
+\label{sec:generalization}
+
+\subsection{Generalization to Longer Sequences}
+\label{sec:longer-sequences}
+
+\subsection{Generalization to Multiple Steps Prediction}
+\label{sec:multiple-steps}
 
 
 \section{Conclusion}
