@@ -3,13 +3,29 @@ import torch
 
 from data_generation import *
 from transformer import *
+from training import *
 from visualize import *
 from constants import *
+
+
+def load_history() -> None:
+    histories = []
+    for rule in RULES:
+        history = TrainHistory.load(
+            load_path=f"{SAVED_MODELS_DIR}/first_experiment/history_rule_{rule}.pt"
+        )
+        histories.append(history)
+    visualize_multiple_loss_histories(
+        histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
+        title="Loss history comparison",
+        save_path=f"{RESULTS_DIR}/first_experiment/loss_history_comparison.png"
+    )
 
 
 def first_experiment(
     save_models: bool = True,
     load_models: bool = False,
+    save_history: bool = True,
     show_ca: bool = True,
     show_predictions: bool = True,
     show_loss_history: bool = True,
@@ -20,6 +36,7 @@ def first_experiment(
 ):
     if random_seed is not None:
         torch.manual_seed(random_seed)
+        np.random.seed(random_seed)
 
     save_results_dir = f"{RESULTS_DIR}/first_experiment"
     if not os.path.exists(save_results_dir):
@@ -69,7 +86,8 @@ def first_experiment(
         else:
             history = train(
                 model=model,
-                data_loader=train_loader,
+                train_loader=train_loader,
+                test_loader=test_loader,
                 device=device,
                 n_epochs=N_EPOCHS,
                 lr=LR,
@@ -79,7 +97,12 @@ def first_experiment(
             if save_models:
                 save_model(
                     model=model,
-                    save_path=f"{save_models_dir}/rule_{rule}.pt"
+                    save_path=f"{save_models_dir}/model_rule_{rule}.pt"
+                )
+            
+            if save_history:
+                history.save(
+                    save_path=f"{save_models_dir}/history_rule_{rule}.pt"
                 )
             
             if show_loss_history:
