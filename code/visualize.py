@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from data_generation import CellularAutomaton
-from transformer import CATransformer, TrainHistory
+from transformer import CATransformer
+from training import TrainHistory
 
 
 def transformer_trajectory(
@@ -75,9 +76,11 @@ def visualize_loss_history(
     epochs = range(1, len(history) + 1)
     
     plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.losses, marker="o")
+    plt.plot(epochs, history.train_losses, marker="o", label="Train Loss")
+    plt.plot(epochs, history.test_losses, marker="s", linestyle="--", label="Test Loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
+    plt.legend()
     plt.grid(True)
     
     max_epoch = len(history)
@@ -140,26 +143,36 @@ def visualize_multiple_loss_histories(
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
-    plt.figure(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8, 5))
     
-    for label, history in histories.items():
+    cmap = plt.get_cmap('tab10')
+    n_colors = len(histories)
+    colors = [cmap(i % 10) for i in range(n_colors)]
+    
+    for idx, (label, history) in enumerate(histories.items()):
         epochs = range(1, len(history) + 1)
-        plt.plot(epochs, history.losses, marker="o", label=label)
+        color = colors[idx]
+        
+        ax.plot(epochs, history.train_losses, marker="o", linewidth=2.0, 
+                color=color, label=f"{label} (train)")
+        if hasattr(history, 'test_losses') and history.test_losses is not None:
+            ax.plot(epochs, history.test_losses, marker="s", linestyle="--", 
+                    linewidth=1.5, color=color, label=f"{label} (test)")
     
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.grid(True)
-    plt.legend()
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
+    ax.grid(True)
+    ax.legend()
     
     max_epoch = max(len(h) for h in histories.values())
     tick_positions = list(range(5, max_epoch + 1, 5))
-    plt.xticks(tick_positions)
+    ax.set_xticks(tick_positions)
 
     if title is not None:
-        plt.suptitle(title, fontsize=14, fontweight="bold")
+        fig.suptitle(title, fontsize=14, fontweight="bold")
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure saved to {save_path}")
     else:
         plt.show()
