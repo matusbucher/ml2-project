@@ -131,6 +131,7 @@ def first_experiment(
             if show_loss_history:
                 visualize_loss_history(
                     history=history,
+                    show_test_loss=True,
                     title=f"Loss history: rule {rule}",
                     save_path=f"{save_results_dir}/loss_history_rule_{rule}.png"
                 )
@@ -179,6 +180,7 @@ def first_experiment(
     if show_loss_history:
         visualize_multiple_loss_histories(
             histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
+            show_test_loss=True,
             title="Loss history comparison",
             save_path=f"{save_results_dir}/loss_history_comparison.png"
         )

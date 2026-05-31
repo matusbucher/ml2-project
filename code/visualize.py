@@ -4,7 +4,7 @@ import numpy as np
 
 from data_generation import CellularAutomaton
 from transformer import CATransformer
-from training import TrainHistory
+from training import EvalMetrics, TrainHistory
 
 
 def transformer_trajectory(
@@ -70,6 +70,7 @@ def visualize_trajectories(
 
 def visualize_loss_history(
     history: TrainHistory,
+    show_test_loss: bool = False,
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
@@ -77,7 +78,8 @@ def visualize_loss_history(
     
     plt.figure(figsize=(8, 5))
     plt.plot(epochs, history.train_losses, marker="o", label="Train Loss")
-    plt.plot(epochs, history.test_losses, marker="s", linestyle="--", label="Test Loss")
+    if show_test_loss:
+        plt.plot(epochs, history.test_losses, marker="s", linestyle="--", label="Test Loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
@@ -111,7 +113,6 @@ def visualize_metrics_history(
     plt.title("Cell accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.ylim(0.0, 1.0)
     plt.grid(True)
     
     max_epoch = len(history)
@@ -123,7 +124,6 @@ def visualize_metrics_history(
     plt.title("Sequence accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.ylim(0.0, 1.0)
     plt.grid(True)
     
     plt.xticks(tick_positions)
@@ -140,6 +140,7 @@ def visualize_metrics_history(
 
 def visualize_multiple_loss_histories(
     histories: dict[str, TrainHistory],
+    show_test_loss: bool = False,
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
@@ -155,7 +156,7 @@ def visualize_multiple_loss_histories(
         
         ax.plot(epochs, history.train_losses, marker="o", linewidth=2.0, 
                 color=color, label=f"{label} (train)")
-        if hasattr(history, 'test_losses') and history.test_losses is not None:
+        if show_test_loss:
             ax.plot(epochs, history.test_losses, marker="s", linestyle="--", 
                     linewidth=1.5, color=color, label=f"{label} (test)")
     
@@ -192,7 +193,6 @@ def visualize_multiple_metrics_histories(
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.title("Cell Accuracy")
-    plt.ylim(0.0, 1.0)
     plt.grid(True)
     plt.legend()
     
@@ -207,7 +207,6 @@ def visualize_multiple_metrics_histories(
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.title("Sequence Accuracy")
-    plt.ylim(0.0, 1.0)
     plt.grid(True)
     plt.legend()
     plt.xticks(tick_positions)
@@ -328,6 +327,57 @@ def visualize_attention(
     
     plt.tight_layout()
     
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_cell_accuracy(
+    eval_metrics: dict[int, EvalMetrics],
+    title: str | None = None,
+    save_path: str | None = None,
+) -> None:
+    seq_lens = list(eval_metrics.keys())
+    cell_accuracies = [metrics.cell_accuracy for metrics in eval_metrics.values()]
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(seq_lens, cell_accuracies, marker="o", linestyle="-")
+    plt.xlabel("Sequence Length")
+    plt.ylabel("Cell Accuracy")
+    plt.grid(True)
+
+    if title is not None:
+        plt.title(title, fontsize=14, fontweight="bold")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_multiple_cell_accuracies(
+    all_eval_metrics: dict[str, dict[int, EvalMetrics]],
+    title: str | None = None,
+    save_path: str | None = None,
+) -> None:
+    plt.figure(figsize=(10, 6))
+    
+    for label, eval_metrics in all_eval_metrics.items():
+        seq_lens = list(eval_metrics.keys())
+        cell_accuracies = [metrics.cell_accuracy for metrics in eval_metrics.values()]
+        plt.plot(seq_lens, cell_accuracies, marker="o", linestyle="-", label=label)
+    
+    plt.xlabel("Sequence Length")
+    plt.ylabel("Cell Accuracy")
+    plt.grid(True)
+    plt.legend()
+
+    if title is not None:
+        plt.title(title, fontsize=14, fontweight="bold")
+
     if save_path is not None:
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure saved to {save_path}")
