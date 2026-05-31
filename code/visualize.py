@@ -8,7 +8,7 @@ from training import TrainHistory
 
 
 def transformer_trajectory(
-    model: torch.nn.Module,
+    model: CATransformer,
     init_state: np.ndarray,
     steps: int,
 ) -> np.ndarray:
