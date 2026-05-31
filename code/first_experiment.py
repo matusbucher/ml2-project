@@ -5,7 +5,30 @@ from data_generation import *
 from transformer import *
 from training import *
 from visualize import *
-from constants import *
+
+
+SHOW_STEPS = 32
+SHOW_N_STATES = 4
+
+RESULTS_DIR = "results"
+SAVED_MODELS_DIR = "saved_models"
+
+RULES = [30, 90, 110, 184]
+
+SEQ_LEN = 32
+TRAIN_STEPS = 1
+TRAIN_SIZE = 100000
+TEST_SIZE = 10000
+BATCH_SIZE = 128
+
+D_MODEL = 64
+N_HEADS = 4
+N_LAYERS = 2
+D_FF = 128
+DROPOUT = 0.1
+
+N_EPOCHS = 20
+LR = 1e-3
 
 
 def load_history() -> None:
@@ -80,7 +103,7 @@ def first_experiment(
         if load_models:
             model = load_model(
                 model=model,
-                load_path=f"{save_models_dir}/rule_{rule}.pt",
+                load_path=f"{save_models_dir}/model_rule_{rule}.pt",
                 device=device,
             )
         else:
