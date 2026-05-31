@@ -14,7 +14,7 @@ class LearnablePositionalEncoding(nn.Module):
         d_model: int,
     ):
         super().__init__()
-        self.pe = nn.Parameter(torch.zeros(1, seq_len, d_model))
+        self.pe = nn.Parameter(torch.randn(1, seq_len, d_model) * 0.02)
 
     def forward(self,
         x: torch.Tensor,
@@ -104,101 +104,6 @@ class EncoderLayer(nn.Module):
         return x, None
 
 
-class AlibiEncoderLayer(nn.Module):
-    """Transformer encoder layer with bidirectional ALiBi attention bias."""
-
-    def __init__(self,
-        d_model: int,
-        n_heads: int,
-        d_ff: int,
-        dropout: float,
-    ):
-        super().__init__()
-
-        self.n_heads = n_heads
-
-        self.self_attn = nn.MultiheadAttention(
-            embed_dim=d_model,
-            num_heads=n_heads,
-            dropout=dropout,
-            batch_first=True,
-        )
-
-        self.linear1 = nn.Linear(d_model, d_ff)
-        self.linear2 = nn.Linear(d_ff, d_model)
-
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
-
-        self.dropout = nn.Dropout(dropout)
-        self.dropout_attn = nn.Dropout(dropout)
-        self.dropout_ff = nn.Dropout(dropout)
-
-        self.activation = nn.GELU()
-
-    def _get_alibi_slopes(self,
-        device: torch.device,
-    ) -> torch.Tensor:
-        slopes = torch.tensor(
-            [0.05 * (2.0 ** -i) for i in range(self.n_heads)],
-            dtype=torch.float32,
-            device=device,
-        )
-        return slopes
-
-    def _make_alibi_mask(self,
-        batch_size: int,
-        seq_len: int,
-        device: torch.device,
-    ) -> torch.Tensor:
-        slopes = self._get_alibi_slopes(device)
-
-        positions = torch.arange(seq_len, device=device)
-        distances = torch.abs(
-            positions[:, None] - positions[None, :]
-        ).float()
-
-        bias = -slopes[:, None, None] * distances[None, :, :]
-        bias = bias.repeat(batch_size, 1, 1)
-
-        return bias
-
-    def forward(self,
-        x: torch.Tensor,
-        return_attention: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        batch_size, seq_len, _ = x.shape
-
-        attn_mask = self._make_alibi_mask(
-            batch_size=batch_size,
-            seq_len=seq_len,
-            device=x.device,
-        )
-
-        attn_output, attn_weights = self.self_attn(x, x, x,
-            attn_mask=attn_mask,
-            need_weights=return_attention,
-            average_attn_weights=False,
-        )
-
-        x = self.norm1(x + self.dropout_attn(attn_output))
-
-        ff = self.linear2(
-            self.dropout(
-                self.activation(
-                    self.linear1(x)
-                )
-            )
-        )
-
-        x = self.norm2(x + self.dropout_ff(ff))
-
-        if return_attention:
-            return x, attn_weights
-
-        return x, torch.empty(0)
-
-
 class CATransformer(nn.Module):
     """A transformer model for learning cellular automaton rules for a fixed sequence length."""
     
@@ -270,8 +175,10 @@ class CATransformer(nn.Module):
         device: str | None = None,
     ) -> list[torch.Tensor]:
         self.eval()
+
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.to(device)
         
         all_attentions = []
         num_batches = 0
