@@ -43,8 +43,7 @@ class CellularAutomaton:
 class CADataset(Dataset):
     """PyTorch Dataset for CellPyLib-generated CA input/target pairs."""
 
-    def __init__(
-        self,
+    def __init__(self,
         n_samples: int,
         seq_len: int,
         rule_number: int = 110,
