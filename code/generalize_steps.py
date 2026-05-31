@@ -1,0 +1,33 @@
+import os
+import torch
+
+from data_generation import *
+from transformer import *
+from training import *
+from visualize import *
+
+
+RANDOM_SEED = 42
+
+SHOW_STEPS = 32
+SHOW_N_STATES = 4
+
+RESULTS_DIR = "results"
+SAVED_MODELS_DIR = "saved_models"
+
+RULES = [30, 90, 110, 184]
+
+SEQ_LEN = 32
+TRAIN_STEPS = [1, 2, 4, 8]
+TRAIN_SIZE = 100000
+TEST_SIZE = 10000
+BATCH_SIZE = 128
+
+D_MODEL = 64
+N_HEADS = 4
+N_LAYERS = 2
+D_FF = 128
+DROPOUT = 0.1
+
+N_EPOCHS = 20
+LR = 1e-3
