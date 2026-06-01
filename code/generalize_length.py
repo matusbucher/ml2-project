@@ -31,18 +31,27 @@ N_EPOCHS = 20
 LR = 1e-3
 
 
-def load_history_generalize_length() -> None:
+def load_history_generalize_length(
+    demb_type: PositionalEmbeddingType,
+) -> None:
     histories = []
     for rule in RULES:
         history = TrainHistory.load(
-            load_path=f"{SAVED_MODELS_DIR}/generalization_length/history_rule_{rule}.pt"
+            load_path=f"{SAVED_MODELS_DIR}/generalize_length_{demb_type.value}/history_rule_{rule}.pt"
         )
         histories.append(history)
+    
     visualize_multiple_loss_histories(
         histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
         show_test_loss=False,
         title="Loss history comparison",
-        save_path=f"{RESULTS_DIR}/generalization_length/loss_history_comparison.png"
+        save_path=f"{RESULTS_DIR}/generalize_length_{demb_type.value}/loss_history_comparison.png"
+    )
+
+    visualize_multiple_metrics_histories(
+        histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
+        title="Evaluation metrics history comparison",
+        save_path=f"{RESULTS_DIR}/generalize_length_{demb_type.value}/eval_history_comparison.png"
     )
 
 
@@ -69,6 +78,7 @@ def trim_collate_fn(
 
 
 def generalize_length(
+    emb_type: PositionalEmbeddingType = PositionalEmbeddingType.SINUSOIDAL,
     save_models: bool = True,
     load_models: bool = False,
     save_history: bool = True,
@@ -82,11 +92,11 @@ def generalize_length(
         torch.manual_seed(random_seed)
         np.random.seed(random_seed)
 
-    save_results_dir = f"{RESULTS_DIR}/generalization_length"
+    save_results_dir = f"{RESULTS_DIR}/generalize_length_{emb_type.value}"
     if not os.path.exists(save_results_dir):
         os.makedirs(save_results_dir)
     
-    save_models_dir = f"{SAVED_MODELS_DIR}/generalization_length"
+    save_models_dir = f"{SAVED_MODELS_DIR}/generalize_length_{emb_type.value}"
     if save_models and not os.path.exists(save_models_dir):
         os.makedirs(save_models_dir)
     
@@ -97,6 +107,7 @@ def generalize_length(
 
     for rule in RULES:
         model = CATransformer(
+            emb_type=emb_type,
             d_model=D_MODEL,
             n_heads=N_HEADS,
             n_layers=N_LAYERS,

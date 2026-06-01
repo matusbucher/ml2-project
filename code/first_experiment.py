@@ -38,10 +38,17 @@ def load_history_first_experiment() -> None:
             load_path=f"{SAVED_MODELS_DIR}/first_experiment/history_rule_{rule}.pt"
         )
         histories.append(history)
+    
     visualize_multiple_loss_histories(
         histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
         title="Loss history comparison",
         save_path=f"{RESULTS_DIR}/first_experiment/loss_history_comparison.png"
+    )
+
+    visualize_multiple_metrics_histories(
+        histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
+        title="Evaluation metrics history comparison",
+        save_path=f"{RESULTS_DIR}/first_experiment/eval_history_comparison.png"
     )
 
 
@@ -86,6 +93,7 @@ def first_experiment(
 
     for rule in RULES:
         model = CATransformer(
+            emb_type=PositionalEmbeddingType.LEARNED,
             seq_len=SEQ_LEN,
             d_model=D_MODEL,
             n_heads=N_HEADS,
