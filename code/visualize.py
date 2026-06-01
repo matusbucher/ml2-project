@@ -110,6 +110,7 @@ def visualize_metrics_history(
     
     plt.subplot(1, 2, 1)
     plt.plot(epochs, [m.cell_accuracy for m in history.eval_metrics], marker="o")
+    plt.ylim(0.0, 1.00)
     plt.title("Cell accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
@@ -121,6 +122,7 @@ def visualize_metrics_history(
     
     plt.subplot(1, 2, 2)
     plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="o", color="orange")
+    plt.ylim(0.0, 1.00)
     plt.title("Sequence accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
@@ -155,7 +157,7 @@ def visualize_multiple_loss_histories(
         color = colors[idx]
         
         ax.plot(epochs, history.train_losses, marker="o", linewidth=2.0, 
-                color=color, label=f"{label} (train)")
+                color=color, label=f"{label} (train)" if show_test_loss else label)
         if show_test_loss:
             ax.plot(epochs, history.test_losses, marker="s", linestyle="--", 
                     linewidth=1.5, color=color, label=f"{label} (test)")
@@ -190,9 +192,10 @@ def visualize_multiple_metrics_histories(
     for label, history in histories.items():
         epochs = range(1, len(history) + 1)
         plt.plot(epochs, [m.cell_accuracy for m in history.eval_metrics], marker="o", label=label)
+    plt.ylim(0.0, 1.00)
+    plt.title("Cell Accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.title("Cell Accuracy")
     plt.grid(True)
     plt.legend()
     
@@ -203,10 +206,11 @@ def visualize_multiple_metrics_histories(
     plt.subplot(1, 2, 2)
     for label, history in histories.items():
         epochs = range(1, len(history) + 1)
-        plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="x", label=label)
+        plt.plot(epochs, [m.sequence_accuracy for m in history.eval_metrics], marker="o", label=label)
+    plt.ylim(0.0, 1.00)
+    plt.title("Sequence Accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.title("Sequence Accuracy")
     plt.grid(True)
     plt.legend()
     plt.xticks(tick_positions)
