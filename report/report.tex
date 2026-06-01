@@ -44,7 +44,7 @@
 
 In this project, we investigate whether a small Transformer model can learn to predict the next state of one-dimensional binary cellular automata from randomly generated initial configurations.
 
-Previous work by Burtsev~\cite{burtsev} studied the ability of Transformer architectures to learn and generalize the rules governing elementary cellular automata. Inspired by this work, we attempt to replicate selected results using substantially smaller models and a lightweight experimental setup. Rather than considering arbitrary automaton rules, we focus on several well-known elementary cellular automata and compare how their transition dynamics can be learned by a Transformer model and how it can generalize to longer sequences and multiple steps prediction.
+Previous work by Burtsev~\cite{burtsev} studied the ability of Transformer architectures to learn and generalize the rules governing elementary cellular automata. Inspired by this work, we attempt to replicate selected results using substantially smaller models and a lightweight experimental setup. Rather than considering arbitrary automaton rules, we focus on several well-known elementary cellular automata and compare how their transition dynamics can be learned by a Transformer model and how it can generalize to longer sequences.
 
 We implement a simple Transformer model in Python using PyTorch~\cite{pytorch} and NumPy~\cite{numpy} libraries. Additionally, we utilize the CellPyLib~\cite{cellpylib} library for generating cellular automaton data.
 
@@ -75,13 +75,23 @@ We chose these four rules for our experiments because they exhibit a range of be
     \item \textbf{Rule 184} (class II) -- Models traffic flow and exhibits more ordered behavior with clear moving patterns.
 \end{itemize}
 
-Evolution of these rules from a simple initial configuration (a single active cell in the center) is shown in \cref{fig:ca-rules-comparison}.
+Evolution of these rules from a simple initial configuration (a single active cell in the center) is shown in \cref{fig:trajectory-simple}, while \cref{fig:trajectory-random} shows example trajectories from random initial states.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\linewidth]{../results/ca_rules_comparison.png}
-    \caption{Comparison of ECA rules trajectories: (top-left) Rule 30, (top-right) Rule 90, (bottom-left) Rule 110, and (bottom-right) Rule 184. Each image shows the evolution of the rule from a simple initial configuration (a single active cell in the center).}
-    \label{fig:ca-rules-comparison}
+    \caption{Comparison of ECA rules trajectories from a simple initial configuration (a single active cell in the center): (top-left) Rule 30, (top-right) Rule 90, (bottom-left) Rule 110, and (bottom-right) Rule 184.}
+    \label{fig:trajectory-simple}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_30.png}
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_90.png} \\
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_110.png}
+    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_184.png}
+    \caption{Comparison of ECA rules trajectories from random initial states: (top-left) Rule 30, (top-right) Rule 90, (bottom-left) Rule 110, (bottom-right) Rule 184.}
+    \label{fig:trajectory-random}
 \end{figure}
 
 
@@ -135,13 +145,13 @@ However, they worked with cellular automata of width $W = 20$ and radius $r = 2$
 
 They also use a slightly larger input vocabulary, including special token [SEP] for separating multiple states in the input and mask token [M], which takes place of the state or rule to be predicted.
 
-While Burtsev's work focused on predicting next states and/or rules for an arbitrary CA, we focus on learning the next state for a fixed set of ECA rules. We aim to analyze and compare the learning dynamics of the model across different rules with varying degrees of complexity and structure. Then, we will explore the model's ability to generalize to longer sequences and multiple steps prediction.
+While Burtsev's work focused on predicting next states and/or rules for an arbitrary CA, we focus on learning the next state for a fixed set of ECA rules. We aim to analyze and compare the learning dynamics of the model across different rules with varying degrees of complexity and structure. Then, we will explore the model's ability to generalize to longer sequences.
 
 
 \section{First Experiment}
 \label{sec:first-experiment}
 
-In the first experiment, we evaluate the Transformer model's ability to predict the next state given the current state for four different ECA rules: Rule 30, Rule 90, Rule 110, and Rule 184. These rules exhibit diverse patterns, ranging from ordered (rules 90 and 184) to chaotic dynamics (rules 30 and 110).
+In the first experiment, we evaluate the Transformer model's ability to predict the next state given the current state with fixed sequence length for four different ECA rules: Rule 30, Rule 90, Rule 110, and Rule 184. These rules exhibit diverse patterns, ranging from ordered (rules 90 and 184) to chaotic dynamics (rules 30 and 110).
 
 We initially expected that Rules 90 and 184 will be easier for the Transformer to learn than Rules 30 and 110, since their update dynamics are more regular and structured, whereas Rules 30 and 110 exhibit more complex or chaotic behavior. However, we got quite the opposite results, more details in \cref{sec:results}.
 
@@ -156,18 +166,6 @@ The dataset sizes are:
     \item Training set: $100{,}000$ samples per rule
     \item Test set: $10{,}000$ samples per rule
 \end{itemize}
-
-\Cref{fig:ca-examples} shows example trajectories generated by the cellular automaton from random initial states to illustrate each rule's behavior.
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_30.png}
-    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_90.png} \\
-    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_110.png}
-    \includegraphics[width=0.45\linewidth]{../results/first_experiment/ca_rule_184.png}
-    \caption{CA rule evolution from random initial states: (top-left) Rule 30, (top-right) Rule 90, (bottom-left) Rule 110, (bottom-right) Rule 184.}
-    \label{fig:ca-examples}
-\end{figure}
 
 We use a batch size of $128$ for training and the model is trained for $20$ epochs. We measured the training loss and also evaluated accuracy metrics after each epoch.
 
@@ -214,14 +212,79 @@ We also analyzed the attention maps of the trained models for both layers, shown
 \end{figure}
 
 
-\section{Generalization of the Model}
+\section{Generalization to Longer Sequences}
 \label{sec:generalization}
 
-\subsection{Generalization to Longer Sequences}
-\label{sec:longer-sequences}
+In the second part of the project, we investigate the model's ability to generalize to longer sequences. For the first experiment, we had a fixed sequence length $W = 32$ with a learnable positional embedding. In order to support variable sequence lengths, we switch to other positional embedding schemes:
 
-\subsection{Generalization to Multiple Steps Prediction}
-\label{sec:multiple-steps}
+\begin{itemize}
+    \item \textbf{Sinusoidal positional embedding} (mentioned in \cite{attention-is-all-you-need}) -- An absolute positional embedding (APE) that uses deterministic sine and cosine functions to generate position vectors.
+    \item \textbf{Rotary Positional Embedding} (RoPE)~\cite{rope} -- A method that applies a rotation to the query and key vectors in the attention mechanism based on their position.
+\end{itemize}
+
+Both of these embedding schemes do not use learnable parameters, allowing to process sequences of longer lengths than those seen during training.
+
+
+\subsection{Sinusoidal Positional Embedding}
+\label{sec:sinusoidal}
+
+Sinusoidal embedding is, same as the learnable embedding, an absolute positional embedding (APE). This means that the positional embedding is added to the token embedding before being fed into the Transformer layers. Hence, switching to the other embedding does not require any major changes to the model architecture.
+
+We use the same model's hyperparameters as in the first experiment. We trained the model on variable-length sequences of width $W \in \langle 16, 128 \rangle$ in an attempt to encourage the model to learn a more generalizable solution. We then evaluate the model on sequences of widths $W \in \{ 16, 32, ..., 256 \}$.
+
+The results were quite surprising -- for Rules 30, 110, and 184, the model trained well, still achieving perfect accuracy on the test set. However, Rule 90 did not converge at all, with the training loss remaining at around $\ln(2)$ and the accuracy metrics staying at around 50\%, which is equivalent to random guessing. Training loss and evaluation metrics history for all four rules are shown in \cref{fig:loss-history-sinusoidal} and \cref{fig:eval-history-sinusoidal}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{../results/generalization_length/loss_history_comparison.png}
+    \caption{Training loss comparison across all four rules with sinusoidal positional embedding.}
+    \label{fig:loss-history-sinusoidal}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{../results/generalization_length/eval_history_comparison.png}
+    \caption{Evaluation metrics comparison during training with sinusoidal positional embedding: (left) cell-wise accuracy, (right) sequence-wise accuracy.}
+    \label{fig:eval-history-sinusoidal}
+\end{figure}
+
+Cell accuracy for different sequence lengths is shown in \cref{fig:cell-accuracy-sinusoidal}. It is easy to see that the models (except for Rule 90) have almost perfect accuracy on sequences of lengths seen during training (16 to 128), but for longer sequences, the accuracy gradually drops. The model trained on Rule 90 with sinusoidal positional embedding did not learn anything, hence the cell accuracy is around 50\% for all sequence lengths.
+
+\begin{figure}[ht]
+    \centering
+        \includegraphics[width=\linewidth]{../results/generalization_length/cell_accuracy_comparison.png}
+        \caption{Cell accuracy evaluated on test sequences of different lengths with sinusoidal positional embedding. Model was trained on lengths $W \in \langle 16, 128 \rangle$ and evaluated on lengths $W \in \{ 16, 32, ..., 256 \}$.}
+    \label{fig:cell-accuracy-sinusoidal}
+\end{figure}
+
+Additionally, we attempted to train Rule 90 with a smaller learning rate of $3 \cdot 10^{-4}$, dropout probability of $0.0$, and 40 epochs. This really helped the model to converge, but it did not achieve perfect accuracy as other rules -- $99.5\%$ cell accuracy and $63.9\%$ sequence accuracy. Loss and evaluation metrics history are shown in \cref{fig:loss-history-sinusoidal-rule90} and \cref{fig:eval-history-sinusoidal-rule90}. Evaluated cell accuracy on the test set is shown in \cref{fig:cell-accuracy-sinusoidal-rule90}. We can see the same drop in accuracy for sequences longer than 128, with sequences of length 256 having around $70\%$ cell accuracy.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{../results/generalization_length2/loss_history_rule_90.png}
+    \caption{Training loss history for Rule 90 with sinusoidal positional embedding and modified hyperparameters (learning rate $3 \cdot 10^{-4}$, dropout $0.0$, 40 epochs).}
+    \label{fig:loss-history-sinusoidal-rule90}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{../results/generalization_length2/eval_history_rule_90.png}
+    \caption{Evaluation metrics history for Rule 90 with sinusoidal positional embedding and modified hyperparameters (learning rate $3 \cdot 10^{-4}$, dropout $0.0$, 40 epochs): (left) cell-wise accuracy, (right) sequence-wise accuracy.}
+    \label{fig:eval-history-sinusoidal-rule90}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+        \includegraphics[width=\linewidth]{../results/generalization_length2/cell_accuracy_rule_90.png}
+        \caption{Cell accuracy for Rule 90 with sinusoidal positional embedding and modified hyperparameters (learning rate $3 \cdot 10^{-4}$, dropout $0.0$, 40 epochs) evaluated on test sequences of different lengths.}
+    \label{fig:cell-accuracy-sinusoidal-rule90}
+\end{figure}
+
+
+\subsection{Rotary Positional Embedding}
+\label{sec:rope}
+
+TODO
 
 
 \section{Conclusion}
