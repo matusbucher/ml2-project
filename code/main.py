@@ -18,38 +18,28 @@ if __name__ == "__main__":
     # )
 
     # first_experiment(
-    #     save_models=True,
+    #     save_models=False,
     #     load_models=False,
-    #     save_history=True,
+    #     save_history=False,
     #     show_ca=False,
     #     show_predictions=False,
-    #     show_loss_history=True,
-    #     show_eval_history=True,
-    #     show_attention=True,
+    #     show_loss_history=False,
+    #     show_eval_history=False,
+    #     show_attention=False,
     #     print_eval=True,
     #     random_seed=RANDOM_SEED,
     # )
 
-    first_experiment(
-        save_models=False,
-        load_models=False,
-        save_history=False,
-        show_ca=False,
-        show_predictions=False,
-        show_loss_history=False,
-        show_eval_history=False,
-        show_attention=False,
-        print_eval=True,
-        random_seed=RANDOM_SEED,
-    )
-
-    # test_generalization(
-    #     save_models=True,
+    # generalize_length(
+    #     emb_type=PositionalEmbeddingType.ROPE,
+    #     save_models=False,
     #     load_models=False,
-    #     save_history=True,
-    #     show_loss_history=True,
-    #     show_eval_history=True,
-    #     show_attention=True,
+    #     save_history=False,
+    #     show_loss_history=False,
+    #     show_eval_history=False,
+    #     show_cell_accuracy=False,
     #     print_eval=True,
     #     random_seed=RANDOM_SEED,
     # )
+
+    print("Uncomment the desired function calls in main.py to run the experiments and visualizations.")
