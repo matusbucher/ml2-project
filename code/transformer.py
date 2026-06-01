@@ -63,14 +63,122 @@ class SinusoidalPositionalEncoding(nn.Module):
 
 
 class RoPEMultiheadAttention(nn.Module):
-    """Multihead attention module with RoPE positional encoding."""
-    
+    """Multihead self-attention module with RoPE positional encoding."""
+
+    inv_freq: torch.Tensor
+
     def __init__(self,
         d_model: int,
         n_heads: int,
         dropout: float,
     ):
+        if d_model % n_heads != 0:
+            raise ValueError(
+                f"d_model must be divisible by n_heads (got d_model={d_model}, n_heads={n_heads})"
+            )
+
+        head_dim = d_model // n_heads
+        if head_dim % 2 != 0:
+            raise ValueError(
+                f"head_dim must be even for RoPE (got head_dim={head_dim})"
+            )
+
         super().__init__()
+
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.head_dim = head_dim
+        self.dropout = dropout
+
+        self.qkv = nn.Linear(d_model, 3 * d_model)
+        self.out = nn.Linear(d_model, d_model)
+
+        inv_freq = 1.0 / (
+            10000 ** (
+                torch.arange(0, self.head_dim, 2, dtype=torch.float)
+                / self.head_dim
+            )
+        )
+        self.register_buffer("inv_freq", inv_freq)
+
+    def forward(self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        need_weights: bool = False,
+        average_attn_weights: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        x = query
+
+        B, T, D = x.shape
+
+        qkv = self.qkv(x)
+        q, k, v = qkv.chunk(3, dim=-1)
+
+        q = q.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+
+        cos, sin = self._get_rope_cache(T, x.device, x.dtype)
+
+        q = self._apply_rope(q, cos, sin)
+        k = self._apply_rope(k, cos, sin)
+
+        if need_weights:
+            attn_scores = torch.matmul(q, k.transpose(-2, -1))
+            attn_scores = attn_scores / math.sqrt(self.head_dim)
+
+            attn_weights = torch.softmax(attn_scores, dim=-1)
+
+            if self.training and self.dropout > 0.0:
+                attn_weights = nn.functional.dropout(attn_weights, p=self.dropout)
+
+            attn = torch.matmul(attn_weights, v)
+
+            if average_attn_weights:
+                attn_weights = attn_weights.mean(dim=1)
+        else:
+            attn = nn.functional.scaled_dot_product_attention(q, k, v,
+                dropout_p=self.dropout if self.training else 0.0,
+            )
+            attn_weights = None
+
+        attn = attn.transpose(1, 2).reshape(B, T, D)
+        out = self.out(attn)
+
+        return out, attn_weights
+
+    def _get_rope_cache(self,
+        seq_len: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        pos = torch.arange(seq_len, device=device, dtype=self.inv_freq.dtype)
+
+        freqs = torch.outer(pos, self.inv_freq.to(device))
+        cos = torch.cos(freqs).to(dtype)
+        sin = torch.sin(freqs).to(dtype)
+
+        cos = torch.repeat_interleave(cos, repeats=2, dim=-1)
+        sin = torch.repeat_interleave(sin, repeats=2, dim=-1)
+
+        cos = cos[None, None, :, :]
+        sin = sin[None, None, :, :]
+
+        return cos, sin
+
+    @staticmethod
+    def _apply_rope(
+        x: torch.Tensor,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
+    ) -> torch.Tensor:
+        x1 = x[..., ::2]
+        x2 = x[..., 1::2]
+
+        x_rotated = torch.stack((-x2, x1), dim=-1).reshape_as(x)
+
+        return x * cos + x_rotated * sin
 
 
 class EncoderLayer(nn.Module):
