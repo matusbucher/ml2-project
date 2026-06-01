@@ -1,7 +1,15 @@
+from enum import Enum
+
 import math
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
+
+
+class PositionalEmbeddingType(Enum):
+    LEARNED = "learned"
+    SINUSOIDAL = "sinusoidal"
+    ROPE = "rope"
 
 
 class LearnablePositionalEncoding(nn.Module):
@@ -54,10 +62,22 @@ class SinusoidalPositionalEncoding(nn.Module):
         return self.pe[:, :seq_len, :]
 
 
+class RoPEMultiheadAttention(nn.Module):
+    """Multihead attention module with RoPE positional encoding."""
+    
+    def __init__(self,
+        d_model: int,
+        n_heads: int,
+        dropout: float,
+    ):
+        super().__init__()
+
+
 class EncoderLayer(nn.Module):
     """Transformer encoder layer that can return attention weights."""
 
     def __init__(self,
+        emb_type: PositionalEmbeddingType,
         d_model: int,
         n_heads: int,
         d_ff: int,
@@ -65,12 +85,19 @@ class EncoderLayer(nn.Module):
     ):
         super().__init__()
 
-        self.self_attn = nn.MultiheadAttention(
-            embed_dim=d_model,
-            num_heads=n_heads,
-            dropout=dropout,
-            batch_first=True,
-        )
+        if emb_type == PositionalEmbeddingType.ROPE:
+            self.self_attn = RoPEMultiheadAttention(
+                d_model=d_model,
+                n_heads=n_heads,
+                dropout=dropout,
+            )
+        else:
+            self.self_attn = nn.MultiheadAttention(
+                embed_dim=d_model,
+                num_heads=n_heads,
+                dropout=dropout,
+                batch_first=True,
+            )
 
         self.linear1 = nn.Linear(d_model, d_ff)
         self.linear2 = nn.Linear(d_ff, d_model)
@@ -108,6 +135,7 @@ class CATransformer(nn.Module):
     """A transformer model for learning cellular automaton rules for a fixed sequence length."""
     
     def __init__(self,
+        emb_type: PositionalEmbeddingType = PositionalEmbeddingType.SINUSOIDAL,
         seq_len: int | None = None,
         d_model: int = 64,
         n_heads: int = 4,
@@ -119,13 +147,20 @@ class CATransformer(nn.Module):
 
         self.token_emb = nn.Embedding(2, d_model)
 
-        if seq_len is not None:
+        if emb_type == PositionalEmbeddingType.LEARNED:
+            if seq_len is None:
+                raise ValueError("seq_len must be specified for learned positional embedding")
             self.pos_emb = LearnablePositionalEncoding(seq_len=seq_len, d_model=d_model)
-        else:
+        elif emb_type == PositionalEmbeddingType.SINUSOIDAL:
             self.pos_emb = SinusoidalPositionalEncoding(d_model=d_model)
+        elif emb_type == PositionalEmbeddingType.ROPE:
+            self.pos_emb = None
+        else:
+            raise ValueError(f"Unsupported positional embedding type: {emb_type}")
 
         self.layers = nn.ModuleList([
             EncoderLayer(
+                emb_type=emb_type,
                 d_model=d_model,
                 n_heads=n_heads,
                 d_ff=d_ff,
