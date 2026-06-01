@@ -31,7 +31,7 @@ N_EPOCHS = 20
 LR = 1e-3
 
 
-def load_history() -> None:
+def load_history_first_experiment() -> None:
     histories = []
     for rule in RULES:
         history = TrainHistory.load(
