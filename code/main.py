@@ -54,8 +54,4 @@ if __name__ == "__main__":
     #     random_seed=RANDOM_SEED,
     # )
 
-    load_history_generalize_steps()
-    visualize_average_attention_generalize_steps()
-    visualize_ca_generalize_steps()
-
-    # print("Uncomment the desired function calls in main.py to run the experiments and visualizations.")
+    print("Uncomment the desired function calls in main.py to run the experiments and visualizations.")
