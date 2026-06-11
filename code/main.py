@@ -4,6 +4,7 @@ from training import *
 from visualize import *
 from first_experiment import *
 from generalize_length import *
+from generalize_steps import *
 
 
 RANDOM_SEED = 42
@@ -42,4 +43,19 @@ if __name__ == "__main__":
     #     random_seed=RANDOM_SEED,
     # )
 
-    print("Uncomment the desired function calls in main.py to run the experiments and visualizations.")
+    # generalize_steps(
+    #     save_models=True,
+    #     load_models=False,
+    #     save_history=True,
+    #     show_loss_history=True,
+    #     show_eval_history=True,
+    #     show_attention=True,
+    #     print_eval=True,
+    #     random_seed=RANDOM_SEED,
+    # )
+
+    load_history_generalize_steps()
+    visualize_average_attention_generalize_steps()
+    visualize_ca_generalize_steps()
+
+    # print("Uncomment the desired function calls in main.py to run the experiments and visualizations.")

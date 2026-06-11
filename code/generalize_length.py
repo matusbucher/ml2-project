@@ -32,12 +32,12 @@ LR = 1e-3
 
 
 def load_history_generalize_length(
-    demb_type: PositionalEmbeddingType,
+    emb_type: PositionalEmbeddingType,
 ) -> None:
     histories = []
     for rule in RULES:
         history = TrainHistory.load(
-            load_path=f"{SAVED_MODELS_DIR}/generalize_length_{demb_type.value}/history_rule_{rule}.pt"
+            load_path=f"{SAVED_MODELS_DIR}/generalize_length_{emb_type.value}/history_rule_{rule}.pt"
         )
         histories.append(history)
     
@@ -45,13 +45,13 @@ def load_history_generalize_length(
         histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
         show_test_loss=False,
         title="Loss history comparison",
-        save_path=f"{RESULTS_DIR}/generalize_length_{demb_type.value}/loss_history_comparison.png"
+        save_path=f"{RESULTS_DIR}/generalize_length_{emb_type.value}/loss_history_comparison.png"
     )
 
     visualize_multiple_metrics_histories(
         histories={f"Rule {rule}": h for rule, h in zip(RULES, histories)},
         title="Evaluation metrics history comparison",
-        save_path=f"{RESULTS_DIR}/generalize_length_{demb_type.value}/eval_history_comparison.png"
+        save_path=f"{RESULTS_DIR}/generalize_length_{emb_type.value}/eval_history_comparison.png"
     )
 
 
@@ -185,6 +185,7 @@ def generalize_length(
         if show_cell_accuracy:
             visualize_cell_accuracy(
                 eval_metrics=test_metrics,
+                x_label="Sequence Length",
                 title=f"Cell accuracy for different sequence lengths: rule {rule}",
                 save_path=f"{save_results_dir}/cell_accuracy_rule_{rule}.png"
             )
@@ -218,6 +219,7 @@ def generalize_length(
     if show_cell_accuracy:
         visualize_multiple_cell_accuracies(
             all_eval_metrics={f"Rule {rule}": m for rule, m in zip(RULES, all_test_metrics)},
+            x_label="Sequence Length",
             title="Cell accuracy comparison for different sequence lengths",
             save_path=f"{save_results_dir}/cell_accuracy_comparison.png"
         )

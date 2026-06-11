@@ -338,8 +338,35 @@ def visualize_attention(
         plt.show()
 
 
+def visualize_single_attention(
+    attention_weight: torch.Tensor,
+    title: str | None = None,
+    save_path: str | None = None,   
+) -> None:
+    if attention_weight.dim() != 2:
+        print(f"Unexpected attention tensor shape: {attention_weight.shape}. Expected 2D (seq_len, seq_len)")
+        return
+
+    attn_np = attention_weight.detach().cpu().numpy()
+    plt.figure(figsize=(8, 6))
+    im = plt.imshow(attn_np, cmap="viridis", aspect="auto")
+    plt.colorbar(im, fraction=0.046, pad=0.04)
+    plt.xlabel("Key position")
+    plt.ylabel("Query position")
+
+    if title is not None:
+        plt.title(title, fontsize=18, fontweight="bold")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure saved to {save_path}")
+    else:
+        plt.show()
+
+
 def visualize_cell_accuracy(
     eval_metrics: dict[int, EvalMetrics],
+    x_label: str,
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
@@ -348,7 +375,7 @@ def visualize_cell_accuracy(
 
     plt.figure(figsize=(10, 6))
     plt.plot(seq_lens, cell_accuracies, marker="o", linestyle="-")
-    plt.xlabel("Sequence Length")
+    plt.xlabel(x_label)
     plt.ylabel("Cell Accuracy")
     plt.grid(True)
 
@@ -364,6 +391,7 @@ def visualize_cell_accuracy(
 
 def visualize_multiple_cell_accuracies(
     all_eval_metrics: dict[str, dict[int, EvalMetrics]],
+    x_label: str,
     title: str | None = None,
     save_path: str | None = None,
 ) -> None:
@@ -374,7 +402,7 @@ def visualize_multiple_cell_accuracies(
         cell_accuracies = [metrics.cell_accuracy for metrics in eval_metrics.values()]
         plt.plot(seq_lens, cell_accuracies, marker="o", linestyle="-", label=label)
     
-    plt.xlabel("Sequence Length")
+    plt.xlabel(x_label)
     plt.ylabel("Cell Accuracy")
     plt.grid(True)
     plt.legend()
