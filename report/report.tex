@@ -50,7 +50,7 @@
 
 In this project, we investigate whether a small Transformer model can learn to predict the next state of one-dimensional binary cellular automata from randomly generated initial configurations.
 
-Previous work by Burtsev~\cite{burtsev} studied the ability of Transformer architectures to learn and generalize the rules governing elementary cellular automata. Inspired by this work, we attempt to replicate selected results using substantially smaller models and a lightweight experimental setup. Rather than considering arbitrary automaton rules, we focus on several well-known elementary cellular automata and compare how their transition dynamics can be learned by a Transformer model and how it can generalize to longer sequences.
+Previous work by Burtsev~\cite{burtsev} studied the ability of Transformer architectures to learn and generalize the rules governing elementary cellular automata. Inspired by this work, we attempt to replicate selected results using substantially smaller models and a lightweight experimental setup. Rather than considering arbitrary automaton rules, we focus on several well-known elementary cellular automata and compare how their transition dynamics can be learned by a Transformer model and how it can generalize to longer sequences and multiple steps prediction.
 
 We implement a simple Transformer model in Python using PyTorch~\cite{pytorch} and NumPy~\cite{numpy} libraries. Additionally, we utilize the CellPyLib~\cite{cellpylib} library for generating cellular automaton data.
 
@@ -228,7 +228,7 @@ We also analyzed the attention maps of the trained models for both layers, shown
 \section{Generalization to Longer Sequences}
 \label{sec:generalization}
 
-In the second part of the project, we investigate the model's ability to generalize to longer sequences. For the first experiment, we had a fixed sequence length $W = 32$ with a learnable positional embedding. In order to support variable sequence lengths, we switch to other positional embedding schemes:
+In the second part of the project, we investigate the model's ability to generalize, both to longer sequences and to multiple steps prediction. For the first experiment, we had a fixed sequence length $W = 32$ with a learnable positional embedding. In order to support variable sequence lengths, we switch to other positional embedding schemes:
 
 \begin{itemize}
     \item \textbf{Sinusoidal positional embedding} (mentioned in \cite{attention-is-all-you-need}) -- An absolute positional embedding (APE) that uses deterministic sine and cosine functions to generate position vectors.
@@ -327,14 +327,98 @@ Compared to the previous experiment, all four rules did generalize better to lon
 An important observation is that the model's loss appears to drop much faster with RoPE than with other positional embeddings (with the same hyperparameters and training setup), but shows sudden spikes in later epochs, which was not observed with other embeddings. This could indicate that the model is learning a more generalizable solution faster, but it is also more sensitive to overfitting or other optimization issues, such as exploding gradients. Decreasing the learning rate and increasing the number of epochs could potentially help to achieve better results, but we did not have time to experiment with this.
 
 
+\section{Generalization to Multiple Steps}
+\label{sec:multi-step}
+
+Up to this point, we have only focused on the prediction of the very next state. Multiple steps could be predicted by feeding the model's output back as input for the next prediction. However, a more interesting approach is to train the model to predict fixed number of steps ahead directly.
+
+In single-step prediction, the next state of each cell depends only on the the local neighborhood, but when we increase the number of steps, the dependent neighborhood also increases. This should naturally make the task more difficult, especially for rules with more complex dynamics.
+
+We use the same setup as in the first experiment with fixed sequence length of $W = 32$ and learnable positional embedding, but instead of predicting the next state, we train the model to predict the state after $k$ time steps, where $k \in \{ 2, 3, \dots, 8 \}$. For each $k$, we train a separate model for each rule. The training loss and evaluation metrics history for all rules and different values of $k$ are shown in \cref{fig:loss-history-multi-step-1} and \cref{fig:loss-history-multi-step-2}. Test cell accuracy for different values of $k$ is shown in \cref{fig:cell-accuracy-multi-step}. Here we can see that Rule 184 kept high accuracy even for larger values of $k$, while Rules 30 and 110 show a significant drop in accuracy for $k > 5$ (almost dropping to 50\% meaning they did not learn anything).
+
+The most surprising results are again for Rule 90 -- for $k = 1, 2, 4$ and even $8$ it achieved perfect accuracy, while for other values of $k$ it did not learn anything at all. It is quite interesting that the values of $k$ for which the model trained successfully are exactly the powers of 2. It seems as if the states after $2^n$ steps contain some kind of regularity and structure that the model can learn more easily.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[height=10em]{../results/generalize_steps_1/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_1/eval_history_comparison.png}\\
+    \includegraphics[height=10em]{../results/generalize_steps_2/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_2/eval_history_comparison.png}\\
+    \includegraphics[height=10em]{../results/generalize_steps_3/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_3/eval_history_comparison.png}\\
+    \includegraphics[height=10em]{../results/generalize_steps_4/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_4/eval_history_comparison.png}\\
+    \caption{Training loss and evaluation metrics history for different number of steps prediction: from top to bottom, $k = 1, 2, 3, 4$.}
+    \label{fig:loss-history-multi-step-1}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[height=10em]{../results/generalize_steps_5/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_5/eval_history_comparison.png}\\
+    \includegraphics[height=10em]{../results/generalize_steps_6/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_6/eval_history_comparison.png}\\
+    \includegraphics[height=10em]{../results/generalize_steps_7/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_7/eval_history_comparison.png}\\
+    \includegraphics[height=10em]{../results/generalize_steps_8/loss_history_comparison.png}
+    \includegraphics[height=10em]{../results/generalize_steps_8/eval_history_comparison.png}\\
+    \caption{Training loss and evaluation metrics history for different number of steps prediction: from top to bottom, $k = 5, 6, 7, 8$.}
+    \label{fig:loss-history-multi-step-2}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+        \includegraphics[width=\linewidth]{../results/generalize_steps/cell_accuracy_comparison.png}
+        \caption{Cell accuracy evaluated for different number of steps prediction.}
+    \label{fig:cell-accuracy-multi-step}
+\end{figure}
+
+We also analyzed the attention maps, which are shown in \cref{fig:attention-multi-step} (we averaged the weights across all layers and heads). We can see that for small values of $k$ all rules show the diagonal pattern, which is also becoming wider as $k$ increases. This is expected since the model needs to attend to a wider neighborhood to predict further time steps. For larger values of $k$, some rules show a ``global'' attention pattern.
+
+The ``nicest'' patterns are shown by Rule 184, which are becoming wider one cell each time number of prediction steps increases. We can also see an interesting pattern for Rule 90 and $k = 4$ and $k = 8$ -- the pattern is not a single diagonal as usual, but two distinct diagonals together with some diffuse attention in between. This supports the hypothesis that the states after $2^n$ steps contain some kind of regularity and structure that the model can learn. After all, Rule 90 is based on XOR operation, which certainly has some kinf od regularity and structure.
+
+\begin{itemize}
+    \item \textbf{Rule 30} --
+\end{itemize}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_1/average_attention_rule_30.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_1/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_1/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_1/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_2/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_2/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_2/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_2/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_3/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_3/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_3/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_3/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_4/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_4/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_4/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_4/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_5/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_5/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_5/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_5/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_6/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_6/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_6/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_6/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_7/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_7/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_7/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_7/average_attention_rule_184.png}\\
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_8/average_attention_rule_30.png}\includegraphics[width=0.23\linewidth]{../results/generalize_steps_8/average_attention_rule_90.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_8/average_attention_rule_110.png}
+    \includegraphics[width=0.23\linewidth]{../results/generalize_steps_8/average_attention_rule_184.png}\\
+    \caption{Average attention weights for different number of steps prediction: from top to bottom, $k = 1, 2, \dots, 8$, from left to right, Rule 30, Rule 90, Rule 110, Rule 184. Each image shows the average attention weights across all layers and heads and across all test samples.}
+    \label{fig:average-attention-multi-step}
+\end{figure}
+
+
 \section{Other Generalization Experiments}
 \label{sec:other-gen}
 
-Although we did not have time to perform other generalization experiments, we would like to mention some interesting directions for future work:
+Although we did not have time to perform other generalization experiments, we would like to mention two other interesting directions for future work:
 
-\begin{itemize}   
-    \item \textbf{Generalization to multiple time steps} -- Instead of predicting just the next state, we could train the model to predict multiple future states given an initial state. This would test the model's ability to capture longer-term dependencies and dynamics, which are much more complex than the one-step prediction task.
-    
+\begin{itemize}      
     \item \textbf{Generalization to different initial conditions} -- We could evaluate the model's performance on initial states that are significantly different from those seen during training, e.g., dense vectors vs. sparse vectors, or initial states with specific patterns.
     
     \item \textbf{Generalization to different rules} -- We could train the model on a subset of ECA rules and evaluate its performance on unseen rules. This would require including the rule information in the input or, as done in Burtsev's work, providing multiple consecutive states as input to allow the model to infer the underlying rule.
@@ -344,18 +428,20 @@ Although we did not have time to perform other generalization experiments, we wo
 \section{Conclusion}
 \label{sec:conclusion}
 
-In this project, we investigated whether a small Transformer model can learn to predict the next state of one-dimensional binary elementary cellular automata. Our experiments demonstrate that Transformers are indeed capable of learning CA dynamics efficiently, achieving perfect accuracy on all four studied rules (Rules 30, 90, 110, and 184) in the single-step prediction task.
+In this project, we investigated whether a small Transformer model can learn to predict the dynamics of one-dimensional binary elementary cellular automata. Our experiments demonstrate that Transformers are indeed capable of learning CA dynamics efficiently, achieving perfect accuracy on all four studied rules (Rules 30, 90, 110, and 184) in single-step prediction task.
 
 Our main findings are:
 \begin{enumerate}
-    \item The model quickly learns local rules through ``abrupt learning'' phenomena, with convergence times varying across rules independent of their complexity classification.
-    \item Rule 90 proved unexpectedly difficult to learn, suggesting that simple mathematical descriptions do not necessarily translate to easier learning dynamics.
-    \item Attention analysis reveals that the model develops local attention patterns consistent with the local nature of CA rules.
-    \item Absolute positional embeddings (sinusoidal) struggle to generalize to sequences longer than the training distribution, with accuracy degrading significantly beyond the training length.
-    \item Relative positional embeddings (RoPE) provide superior generalization, maintaining high accuracy on sequences up to 1.75 times longer than the training distribution, though at the cost of increased training instability.
+    \item The model quickly learns local rules through ``abrupt learning'' phenomena, with convergence times varying across rules independent of their complexity classification. Rule 90 proved unexpectedly difficult to learn, suggesting that simple mathematical descriptions do not necessarily translate to easier learning dynamics.
+    
+    \item Relative positional embeddings (RoPE) provide superior generalization to longer sequences, maintaining high accuracy on sequences up to 1.75 times longer than the training distribution, though at the cost of increased training instability. Absolute positional embeddings (sinusoidal) struggle significantly beyond the training distribution.
+    
+    \item Multi-step prediction reveals distinct rule behaviors: Rule 184 maintains high accuracy across all prediction horizons, while Rules 30 and 110 degrade significantly for $k > 5$ steps. Rule 90 exhibits remarkable selectivity, achieving perfect accuracy only for powers of 2 ($k \in \{1, 2, 4, 8\}$), suggesting the model discovers underlying mathematical structure in these specific prediction horizons.
+    
+    \item Attention analysis reveals that the model often develops local attention patterns consistent with the local nature of CA rules, with patterns widening as the prediction horizon increases.
 \end{enumerate}
 
-While this work focuses on a simplified setting compared to prior research (smaller model, fixed rules, single-step prediction), it provides valuable insights into how Transformers learn and generalize algorithmic patterns. Future work could extend this to multi-step prediction, learning multiple rules simultaneously, or investigating the theoretical foundations of why certain rules are harder to optimize than others despite their mathematical properties.
+While this work focuses on a simplified setting compared to prior research (smaller model, fixed rules), it provides valuable insights into how Transformers learn and generalize algorithmic patterns. The curious behavior of Rule 90 suggests that models may discover non-obvious mathematical structures or can be sensitive to specific regularities in the data. Future work could investigate the theoretical foundations of these phenomena, explore learning multiple rules simultaneously, or examine whether discovered patterns generalize to other cellular automaton families.
 
 
 \printbibliography
